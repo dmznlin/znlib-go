@@ -14,6 +14,9 @@ import (
 	"time"
 )
 
+//全局日志对象
+var Logger *logrus.Logger
+
 type logCfg struct {
 	FilePath string        `ini:"filePath"`
 	FileName string        `ini:"filename"`
@@ -21,17 +24,22 @@ type logCfg struct {
 	MaxAge   time.Duration `ini:"max_age"`
 }
 
-//全局日志对象
-var Logger = logrus.New()
+//日志附加字段
+type LogFields = logrus.Fields
 
 //Date: 2022-05-10
 //Parm: 日志内容;附加字段
 //Desc: 新增一条info信息
-func Info(info string, fields ...logrus.Fields) {
+func Info(info string, fields ...LogFields) {
+	if Logger == nil {
+		logrus.Warn("znlib.Logger is nil(not init)")
+		return
+	}
+
 	if fields == nil {
 		Logger.Info(info)
 	} else {
-		all := make(logrus.Fields, 10)
+		all := make(LogFields, 10)
 		for _, fs := range fields {
 			for k, v := range fs {
 				all[k] = v
@@ -46,6 +54,11 @@ func Info(info string, fields ...logrus.Fields) {
 //Parm: 日志内容;附加字段
 //Desc: 新增一条警告信息
 func Warn(warn string, fields ...logrus.Fields) {
+	if Logger == nil {
+		logrus.Warn("znlib.Logger is nil(not init)")
+		return
+	}
+
 	if fields == nil {
 		Logger.Warn(warn)
 	} else {
@@ -64,6 +77,10 @@ func Warn(warn string, fields ...logrus.Fields) {
 //Parm: 日志内容;附加字段
 //Desc: 新增一条错误信息
 func Error(error string, fields ...logrus.Fields) {
+	if Logger == nil {
+		logrus.Warn("znlib.Logger is nil(not init)")
+		return
+	}
 	if fields == nil {
 		Logger.Error(error)
 	} else {
@@ -79,12 +96,15 @@ func Error(error string, fields ...logrus.Fields) {
 }
 
 func initLogger() {
+	Logger = logrus.New()
+	//new logger
+
 	cfg := logCfg{
 		FilePath: Application.LogPath,
 		FileName: "sys.log",
 		LogLevel: logrus.InfoLevel,
 		MaxAge:   30 * 24 * time.Hour,
-	}
+	} //default config
 
 	if FileExists(Application.ConfigFile, false) {
 		ini, err := iniFile.Load(Application.ConfigFile)
@@ -151,4 +171,10 @@ func initLogger() {
 	Logger.SetOutput(io.MultiWriter(file, os.Stdout))
 	//设置双输出
 	Logger.SetLevel(cfg.LogLevel)
+
+	Logger.SetFormatter(&logrus.TextFormatter{
+		ForceQuote:      true,                         //键值对加引号
+		FullTimestamp:   true,                         //完整时间戳
+		TimestampFormat: "2006-01-02 15:04:05.000000", //时间格式
+	})
 }

@@ -107,10 +107,3 @@ func initApp() {
 		IsWindows:  strings.EqualFold(os, "windows"),
 	}
 }
-
-//Date: 2022-05-09
-//Desc: 根据先后依赖调用各源文件初始化
-func init() {
-	initApp()
-	initLogger()
-}
