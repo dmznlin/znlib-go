@@ -114,4 +114,3 @@ func init() {
 	initApp()
 	initLogger()
 }
-

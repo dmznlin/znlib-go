@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func Test_FixPath(t *testing.T){
-	last := Application.ExePath[len(Application.ExePath) - 1]
-	if Application.IsWindows && last !='\\' {
+func Test_FixPath(t *testing.T) {
+	last := Application.ExePath[len(Application.ExePath)-1]
+	if Application.IsWindows && last != '\\' {
 		t.Errorf("Test_FixPath wrong")
 	}
 }

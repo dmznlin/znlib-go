@@ -24,6 +24,60 @@ type logCfg struct {
 //全局日志对象
 var Logger = logrus.New()
 
+//Date: 2022-05-10
+//Parm: 日志内容;附加字段
+//Desc: 新增一条info信息
+func Info(info string, fields ...logrus.Fields) {
+	if fields == nil {
+		Logger.Info(info)
+	} else {
+		all := make(logrus.Fields, 10)
+		for _, fs := range fields {
+			for k, v := range fs {
+				all[k] = v
+			}
+		}
+
+		Logger.WithFields(all).Info(info)
+	}
+}
+
+//Date: 2022-05-10
+//Parm: 日志内容;附加字段
+//Desc: 新增一条警告信息
+func Warn(warn string, fields ...logrus.Fields) {
+	if fields == nil {
+		Logger.Warn(warn)
+	} else {
+		all := make(logrus.Fields, 10)
+		for _, fs := range fields {
+			for k, v := range fs {
+				all[k] = v
+			}
+		}
+
+		Logger.WithFields(all).Warn(warn)
+	}
+}
+
+//Date: 2022-05-10
+//Parm: 日志内容;附加字段
+//Desc: 新增一条错误信息
+func Error(error string, fields ...logrus.Fields) {
+	if fields == nil {
+		Logger.Error(error)
+	} else {
+		all := make(logrus.Fields, 10)
+		for _, fs := range fields {
+			for k, v := range fs {
+				all[k] = v
+			}
+		}
+
+		Logger.WithFields(all).Error(error)
+	}
+}
+
 func initLogger() {
 	cfg := logCfg{
 		FilePath: Application.LogPath,
@@ -73,7 +127,7 @@ func initLogger() {
 		opt = append(opt, rotatelogs.WithLinkName(logfile))
 	}
 
-	writer, err := rotatelogs.New(cfg.FilePath + "%Y%m%d.log", opt...)
+	writer, err := rotatelogs.New(cfg.FilePath+"%Y%m%d.log", opt...)
 	writeMap := lfshook.WriterMap{
 		logrus.InfoLevel:  writer,
 		logrus.FatalLevel: writer,
