@@ -14,8 +14,11 @@ import (
 	"time"
 )
 
-//全局日志对象
-var Logger *logrus.Logger
+const (
+	logInfo = iota
+	logWarn
+	logEror
+)
 
 type logCfg struct {
 	FilePath string        `ini:"filePath"`
@@ -24,20 +27,31 @@ type logCfg struct {
 	MaxAge   time.Duration `ini:"max_age"`
 }
 
+//全局日志对象
+var Logger *logrus.Logger
+
 //日志附加字段
 type LogFields = logrus.Fields
 
+//-----------------------------------------------------------------------------
 //Date: 2022-05-10
-//Parm: 日志内容;附加字段
-//Desc: 新增一条info信息
-func Info(info string, fields ...LogFields) {
+//Parm: 日志类型;日志内容;附加字段
+//Desc: 新增一条类型为logType的日志
+func addLog(logType int8, log string, fields ...LogFields) {
 	if Logger == nil {
 		logrus.Warn("znlib.Logger is nil(not init)")
 		return
 	}
 
-	if fields == nil {
-		Logger.Info(info)
+	if fields == nil { //无附加字段
+		switch logType {
+		case logInfo:
+			Logger.Info(log)
+		case logWarn:
+			Logger.Warn(log)
+		case logEror:
+			Logger.Error(log)
+		}
 	} else {
 		all := make(LogFields, 10)
 		for _, fs := range fields {
@@ -46,55 +60,39 @@ func Info(info string, fields ...LogFields) {
 			}
 		}
 
-		Logger.WithFields(all).Info(info)
+		switch logType {
+		case logInfo:
+			Logger.WithFields(all).Info(log)
+		case logWarn:
+			Logger.WithFields(all).Warn(log)
+		case logEror:
+			Logger.WithFields(all).Error(log)
+		}
 	}
+}
+
+//Date: 2022-05-10
+//Parm: 日志内容;附加字段
+//Desc: 新增一条info信息
+func Info(info string, fields ...LogFields) {
+	addLog(logInfo, info, fields...)
 }
 
 //Date: 2022-05-10
 //Parm: 日志内容;附加字段
 //Desc: 新增一条警告信息
 func Warn(warn string, fields ...logrus.Fields) {
-	if Logger == nil {
-		logrus.Warn("znlib.Logger is nil(not init)")
-		return
-	}
-
-	if fields == nil {
-		Logger.Warn(warn)
-	} else {
-		all := make(logrus.Fields, 10)
-		for _, fs := range fields {
-			for k, v := range fs {
-				all[k] = v
-			}
-		}
-
-		Logger.WithFields(all).Warn(warn)
-	}
+	addLog(logWarn, warn, fields...)
 }
 
 //Date: 2022-05-10
 //Parm: 日志内容;附加字段
 //Desc: 新增一条错误信息
 func Error(error string, fields ...logrus.Fields) {
-	if Logger == nil {
-		logrus.Warn("znlib.Logger is nil(not init)")
-		return
-	}
-	if fields == nil {
-		Logger.Error(error)
-	} else {
-		all := make(logrus.Fields, 10)
-		for _, fs := range fields {
-			for k, v := range fs {
-				all[k] = v
-			}
-		}
-
-		Logger.WithFields(all).Error(error)
-	}
+	addLog(logEror, error, fields...)
 }
 
+//-----------------------------------------------------------------------------
 func initLogger() {
 	Logger = logrus.New()
 	//new logger
