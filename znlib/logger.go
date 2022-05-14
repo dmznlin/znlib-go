@@ -110,7 +110,15 @@ func initLogger() {
 			sec := ini.Section("logger")
 			val := Trim(sec.Key("filePath").String())
 			if val != "" {
-				cfg.FilePath = FixPath(Application.ExePath + val)
+				if StrPos(val, "$path") < 0 {
+					cfg.FilePath = val
+				} else {
+					cfg.FilePath = StrReplace(val, Application.ExePath, "$path\\", "$path/", "$path")
+					//替换路径中的变量
+				}
+
+				cfg.FilePath = FixPath(cfg.FilePath)
+				//添加路径分隔符
 			}
 
 			val = Trim(sec.Key("filename").String())

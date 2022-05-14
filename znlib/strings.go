@@ -125,6 +125,7 @@ func StrPosFrom(str, sub []rune, from int) int {
 
 	compare := func(a, b rune) bool {
 		return a == b || (unicode.IsLower(a) && unicode.ToUpper(a) == b) || (unicode.IsUpper(a) && unicode.ToLower(a) == b)
+		//忽略大小写
 	}
 
 	var match bool
