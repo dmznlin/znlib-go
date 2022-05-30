@@ -1,9 +1,8 @@
-package znlib
-
-/******************************************************************************
-作者: dmzn@163.com 2022-05-09
+/*Package znlib **************************************************************
+作者: dmzn@163.com 2022-05-30 13:35:38
 描述: 系统常量、变量、函数等
 ******************************************************************************/
+package znlib
 
 import (
 	"os"
@@ -36,15 +35,18 @@ type application struct {
 //全局application对象
 var Application application
 
-//Date: 2022-05-09
-//Desc: 获取当前系统名称
+/*OSName 2022-05-30 13:14:24
+  描述: 获取当前系统名称
+*/
 func OSName() string {
 	return runtime.GOOS
 }
 
-//Date: 2022-05-09
-//Parm: 路径;是否文件夹
-//Desc: 判断file是否能存在
+/*FileExists 2022-05-30 13:24:34
+  参数: file,路径
+  参数: isDir,是否文件夹
+  描述: 判断file是否能存在
+*/
 func FileExists(file string, isDir bool) bool {
 	info, err := os.Stat(file)
 	switch {
@@ -60,34 +62,72 @@ func FileExists(file string, isDir bool) bool {
 	}
 }
 
-//Date: 2022-05-09
-//Parm: 文件夹路径34
-//Desc: 若dir末尾没有分隔符,则添加
+/*FixPath 2022-05-30 13:08:42
+  参数: dir,文件夹路径
+  描述: 若dir末尾没有分隔符,则添加
+*/
 func FixPath(dir string) string {
-	len := len(dir) - 1
-	if len < 0 {
+	l := len(dir) - 1
+	if l < 0 {
 		return dir
 	}
 
-	if os.IsPathSeparator(dir[len]) {
+	if os.IsPathSeparator(dir[l]) {
 		return dir
 	} else {
 		return dir + PathSeparator
 	}
 }
 
-//Date: 2022-05-09
-//Parm: 文件夹路径
-//Desc: 创建dir目录
+/*MakeDir 2022-05-30 13:09:23
+  参数: 件夹路径
+  描述: 创建dir目录
+*/
 func MakeDir(dir string) {
-	os.MkdirAll(dir, 755)
+	defer ErrorHandle(false)
+	err := os.MkdirAll(dir, 755)
+
+	if err != nil {
+		panic(err)
+	}
 }
 
-//Date: 2022-05-09
-//Desc: 初始化
+//--------------------------------------------------------------------------------
+
+//异常处理时的回调函数
+type ErrorHandleCallback = func(err any)
+
+/*ErrorHandle 2022-05-30 13:12:31
+  参数: throw,重新抛出异常
+  参数: cb,回调函数
+  描述: 默认异常处理
+*/
+func ErrorHandle(throw bool, cb ...ErrorHandleCallback) {
+	err := recover()
+	switch t := err.(type) {
+	case nil:
+		//no error
+	case error:
+		Error("znlib.Str2Bit: " + t.Error())
+	default:
+		Error("znlib.Str2Bit", LogFields{"data: ": t})
+	}
+
+	for _, f := range cb {
+		f(err)
+	}
+
+	if throw { //re-panic
+		panic(err)
+	}
+}
+
+/*initApp 2022-05-30 14:01:55
+  描述: 初始化
+*/
 func initApp() {
-	os := OSName()
-	if strings.EqualFold(os, "windows") {
+	osName := OSName()
+	if strings.EqualFold(osName, "windows") {
 		PathSeparator = "\\"
 	} else {
 		PathSeparator = "/"
@@ -103,7 +143,7 @@ func initApp() {
 		ConfigFile: AppPath + "config.ini",
 		ConfigDB:   AppPath + "db.ini",
 		PathSymbol: PathSeparator,
-		IsLinux:    strings.EqualFold(os, "linux"),
-		IsWindows:  strings.EqualFold(os, "windows"),
+		IsLinux:    strings.EqualFold(osName, "linux"),
+		IsWindows:  strings.EqualFold(osName, "windows"),
 	}
 }

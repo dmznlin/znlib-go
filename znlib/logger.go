@@ -1,9 +1,9 @@
-package znlib
-
-/******************************************************************************
-作者: dmzn@163.com 2022-05-09
+/*Package znlib ***************************************************************
+作者: dmzn@163.com 2022-05-30 13:46:20
 描述: 提供写入文件的日志
 ******************************************************************************/
+package znlib
+
 import (
 	iniFile "github.com/go-ini/ini"
 	rotatelogs "github.com/lestrrat/go-file-rotatelogs"
@@ -33,10 +33,12 @@ var Logger *logrus.Logger
 //日志附加字段
 type LogFields = logrus.Fields
 
-//-----------------------------------------------------------------------------
-//Date: 2022-05-10
-//Parm: 日志类型;日志内容;附加字段
-//Desc: 新增一条类型为logType的日志
+/*addLog 2022-05-30 13:47:50
+  参数: logType,日志类型
+  参数: log,日志内容
+  参数: fields,附加字段
+  描述: 新增一条类型为logType的日志
+*/
 func addLog(logType int8, log string, fields ...LogFields) {
 	if Logger == nil {
 		logrus.Warn("znlib.Logger is nil(not init)")
@@ -71,23 +73,29 @@ func addLog(logType int8, log string, fields ...LogFields) {
 	}
 }
 
-//Date: 2022-05-10
-//Parm: 日志内容;附加字段
-//Desc: 新增一条info信息
+/*Info 2022-05-30 13:48:29
+  参数: info,日志内容
+  参数: fields,附加字段
+  描述: 新增一条info信息
+*/
 func Info(info string, fields ...LogFields) {
 	addLog(logInfo, info, fields...)
 }
 
-//Date: 2022-05-10
-//Parm: 日志内容;附加字段
-//Desc: 新增一条警告信息
+/*Warn 2022-05-30 13:48:44
+  参数: warn,日志内容
+  参数: fields,附加字段
+  描述: 新增一条警告信息
+*/
 func Warn(warn string, fields ...logrus.Fields) {
 	addLog(logWarn, warn, fields...)
 }
 
-//Date: 2022-05-10
-//Parm: 日志内容;附加字段
-//Desc: 新增一条错误信息
+/*Error 2022-05-30 13:48:58
+  参数: error,日志内容
+  参数: fields,附加字段
+  描述: 新增一条错误信息
+*/
 func Error(error string, fields ...logrus.Fields) {
 	addLog(logEror, error, fields...)
 }

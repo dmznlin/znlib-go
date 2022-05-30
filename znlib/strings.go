@@ -1,18 +1,21 @@
+/*Package znlib ***************************************************************
+作者: dmzn@163.com 2022-05-30 13:40:08
+描述: 常用字符串相关函数
+******************************************************************************/
 package znlib
 
 import (
+	"github.com/dmznlin/znlib-go/znlib/biu"
 	"strings"
 	"unicode"
 )
 
-/******************************************************************************
-作者: dmzn@163.com 2022-05-09
-描述: 常用字符串相关函数
-******************************************************************************/
-
-//Date: 2022-05-09
-//Parm: 字符串;开始位置;长度
-//Desc: 从start开始,复制len长的str子字符串
+/*Copy 2022-05-30 13:40:27
+参数: str,字符串
+参数: start,开始位置
+参数: length,长度
+描述: 从start开始,复制len长的str子字符串
+*/
 func Copy(str string, start, length int) string {
 	maxLen := len(str)
 	if start > maxLen-1 { //超出索引
@@ -26,9 +29,11 @@ func Copy(str string, start, length int) string {
 	return str[start:length]
 }
 
-//Date: 2022-05-11
-//Parm: 字符串;长度
-//Desc: 从str开始位置复制长度为length的子字符串
+/*CopyLeft 2022-05-30 13:41:02
+  参数: str,字符串
+  参数: length,长度
+  描述: 从str开始位置复制长度为length的子字符串
+*/
 func CopyLeft(str string, length int) string {
 	maxLen := len(str)
 	if maxLen < 1 {
@@ -41,9 +46,11 @@ func CopyLeft(str string, length int) string {
 	return str[:length]
 }
 
-//Date: 2022-05-11
-//Parm: 字符串;长度
-//Desc: 从str末尾向前复制长度为length的子字符串
+/*CopyRight 2022-05-30 13:41:20
+  参数: str,字符串
+  参数: length,长度
+  描述: 从str末尾向前复制长度为length的子字符串
+*/
 func CopyRight(str string, length int) string {
 	maxLen := len(str)
 	if maxLen < 1 {
@@ -56,16 +63,20 @@ func CopyRight(str string, length int) string {
 	return str[maxLen-length:]
 }
 
-//Date: 2022-05-09
-//Parm: 字符串
-//Desc: 清除两端的空格、回车换行符
+/*Trim 2022-05-30 13:41:48
+  参数: str,字符串
+  描述: 清除两端的制表、空格、回车换行符
+*/
 func Trim(str string) string {
-	return strings.Trim(str, string([]byte{10, 13, 32}))
+	return strings.Trim(str, string([]byte{9, 10, 13, 32}))
 }
 
-//Date: 2022-05-12
-//Parm: 字符串;先有字符串;新字符串
-//Desc: 使用new替换str中的old字符串,不区分大小写
+/*StrReplace 2022-05-30 13:43:26
+  参数: str,字符串
+  参数: new,新字符串
+  参数: old,现有字符串
+  描述: 使用new替换str中的old字符串,不区分大小写
+*/
 func StrReplace(str string, new string, old ...string) string {
 	if old == nil || len(str) < 1 {
 		return str
@@ -113,9 +124,12 @@ func StrReplace(str string, new string, old ...string) string {
 	return str
 }
 
-//Date: 2022-05-12
-//Parm: 字符串;子字符串;开始索引
-//Desc: 检索sub在str中的位置,不区分大小写
+/*StrPosFrom 2022-05-30 13:44:04
+  参数: str,字符串
+  参数: sub,子字符串
+  参数: from,开始索引
+  描述: 检索sub在str中的位置,不区分大小写
+*/
 func StrPosFrom(str, sub []rune, from int) int {
 	lstr := len(str)
 	lsub := len(sub)
@@ -158,9 +172,33 @@ func StrPosFrom(str, sub []rune, from int) int {
 	return -1
 }
 
-//Date: 2022-05-12
-//Parm: 字符串;子字符串;
-//Desc: 检索sub在str中的位置,不区分大小写
+/*StrPos 2022-05-30 13:44:34
+  参数: str,字符串
+  参数: sub,子字符串
+  描述: 检索sub在str中的位置,不区分大小写
+*/
 func StrPos(str string, sub string) int {
 	return StrPosFrom([]rune(str), []rune(sub), 0)
+}
+
+/*Str2Bit 2022-05-30 13:27:53
+  参数: str,字符串
+  描述: 使用str构建一个字节
+*/
+func Str2Bit(str string) (ret byte) {
+	defer ErrorHandle(false, func(err any) {
+		if err != nil {
+			ret = 0
+		}
+	})
+
+	return biu.BinaryStringToBytes(str)[0]
+}
+
+/*Bit2Str 2022-05-30 14:25:51
+  参数: val,字节
+  描述: 返回val的二进制描述
+*/
+func Bit2Str(val byte) string {
+	return biu.ByteToBinaryString(val)
 }
