@@ -54,3 +54,9 @@ func TestBit2Str(t *testing.T) {
 		t.Errorf("znlib.Bit2Str wrong")
 	}
 }
+
+func TestStrReverse(t *testing.T) {
+	if StrReverse("12345") != "54321" {
+		t.Errorf("znlib.StrReverse wrong")
+	}
+}

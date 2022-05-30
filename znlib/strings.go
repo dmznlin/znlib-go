@@ -11,10 +11,10 @@ import (
 )
 
 /*Copy 2022-05-30 13:40:27
-参数: str,字符串
-参数: start,开始位置
-参数: length,长度
-描述: 从start开始,复制len长的str子字符串
+  参数: str,字符串
+  参数: start,开始位置
+  参数: length,长度
+  描述: 从start开始,复制len长的str子字符串
 */
 func Copy(str string, start, length int) string {
 	maxLen := len(str)
@@ -201,4 +201,18 @@ func Str2Bit(str string) (ret byte) {
 */
 func Bit2Str(val byte) string {
 	return biu.ByteToBinaryString(val)
+}
+
+/*StrReverse 2022-05-30 21:46:04
+  参数: str,字符串
+  描述: 将str首尾翻转
+*/
+func StrReverse(str string) string {
+	runes := []rune(str)
+
+	for from, to := 0, len(runes)-1; from < to; from, to = from+1, to-1 {
+		runes[from], runes[to] = runes[to], runes[from]
+	}
+
+	return string(runes)
 }

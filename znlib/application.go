@@ -5,6 +5,7 @@
 package znlib
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,14 +23,16 @@ var PathSeparator = "/"
 
 //application相关属性
 type application struct {
-	ExeName    string //exe full
-	ExePath    string //exe所在路径
-	LogPath    string //日志目录
-	ConfigFile string //主配置文件
-	ConfigDB   string //数据库配置
-	PathSymbol string //路径分隔符
-	IsWindows  bool   //win
-	IsLinux    bool   //linux
+	ExeName    string   //exe full
+	ExePath    string   //exe所在路径
+	LogPath    string   //日志目录
+	ConfigFile string   //主配置文件
+	ConfigDB   string   //数据库配置
+	PathSymbol string   //路径分隔符
+	IsWindows  bool     //win
+	IsLinux    bool     //linux
+	HostName   string   //主机名称
+	HostIP     []string //主机IP
 }
 
 //全局application对象
@@ -126,6 +129,11 @@ func ErrorHandle(throw bool, cb ...ErrorHandleCallback) {
   描述: 初始化
 */
 func initApp() {
+	hostName, err := os.Hostname()
+	if err != nil {
+		hostName = "unknown"
+	}
+
 	osName := OSName()
 	if strings.EqualFold(osName, "windows") {
 		PathSeparator = "\\"
@@ -145,5 +153,18 @@ func initApp() {
 		PathSymbol: PathSeparator,
 		IsLinux:    strings.EqualFold(osName, "linux"),
 		IsWindows:  strings.EqualFold(osName, "windows"),
+		HostName:   hostName,
+		HostIP:     make([]string, 0, 2),
+	}
+
+	addr, err := net.InterfaceAddrs()
+	if err == nil {
+		for _, val := range addr {
+			if ipnet, ok := val.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					//Application.HostIP = append(Application.HostIP, ipnet.IP.String())
+				}
+			}
+		}
 	}
 }
