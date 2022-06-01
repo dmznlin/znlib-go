@@ -111,9 +111,9 @@ func ErrorHandle(throw bool, cb ...ErrorHandleCallback) {
 	case nil:
 		//no error
 	case error:
-		Error("znlib.Str2Bit: " + t.Error())
+		Error("znlib.ErrorHandle: " + t.Error())
 	default:
-		Error("znlib.Str2Bit", LogFields{"data: ": t})
+		Error("znlib.ErrorHandle", LogFields{"data: ": t})
 	}
 
 	for _, f := range cb {

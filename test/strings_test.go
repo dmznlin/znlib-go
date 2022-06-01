@@ -3,6 +3,7 @@ package test
 import (
 	. "github.com/dmznlin/znlib-go/znlib"
 	"testing"
+	"time"
 )
 
 func TestCopy(t *testing.T) {
@@ -58,5 +59,18 @@ func TestBit2Str(t *testing.T) {
 func TestStrReverse(t *testing.T) {
 	if StrReverse("12345") != "54321" {
 		t.Errorf("znlib.StrReverse wrong")
+	}
+}
+
+func TestStr2Date(t *testing.T) {
+	lc := time.Local
+	if Str2DateTime("2022-06-01 12:00:01") != time.Date(2022, 06, 01, 12, 00, 01, 0, lc) {
+		t.Errorf("znlib.Str2DateTime wrong")
+	}
+}
+
+func TestDate2Str(t *testing.T) {
+	if DateTime2Str(time.Date(2022, 06, 01, 00, 00, 00, 00, time.Local), LayoutDate) != "2022-06-01" {
+		t.Errorf("znlib.DateTime2Str wrong")
 	}
 }

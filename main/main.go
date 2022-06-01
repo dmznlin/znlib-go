@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "github.com/dmznlin/znlib-go/znlib"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -16,4 +17,6 @@ func main() {
 	str := strconv.Itoa(StrPos("中文H测试", "h"))
 	Info(str)
 	Info(StrReplace("中文english混合测试", "虎", "li", "合", "试"))
+
+	Info(DateTime2Str(time.Now(), LayoutDateTimeMilli))
 }

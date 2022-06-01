@@ -7,8 +7,19 @@ package znlib
 import (
 	"github.com/dmznlin/znlib-go/znlib/biu"
 	"strings"
+	"time"
 	"unicode"
 )
+
+var (
+	LayoutTime          = "15:04:05"                //时间
+	LayoutTimeMilli     = "15:04:05.000"            //时间 + 毫秒
+	LayoutDate          = "2006-01-02"              //日期
+	LayoutDateTime      = "2006-01-02 15:04:05"     //日期 + 时间
+	LayoutDateTimeMilli = "2006-01-02 15:04:05.000" //日期 + 时间 + 毫秒
+)
+
+//--------------------------------------------------------------------------------
 
 /*Copy 2022-05-30 13:40:27
   参数: str,字符串
@@ -215,4 +226,67 @@ func StrReverse(str string) string {
 	}
 
 	return string(runes)
+}
+
+//--------------------------------------------------------------------------------
+
+/*DateTime2Str 2022-06-01 13:57:37
+  参数: dt,时间值
+  参数: fmt,格式
+  描述: 使用fmt格式转换dt为字符串
+*/
+func DateTime2Str(dt time.Time, fmt ...string) (ret string) {
+	var lay string
+	if fmt == nil {
+		lay = LayoutDateTime
+	} else {
+		lay = fmt[0]
+	}
+
+	defer ErrorHandle(false, func(err any) {
+		if err != nil {
+			ret = time.Now().Format(LayoutDateTime)
+		}
+	})
+	return dt.Format(lay)
+}
+
+/*Str2DateTime 2022-06-01 14:06:49
+  参数: dt,时间字符串
+  参数: fmt,格式
+  描述: 使用fmt格式转换dt为时间值
+*/
+func Str2DateTime(dt string, fmt ...string) (ret time.Time) {
+	defer ErrorHandle(false, func(err any) {
+		if err != nil {
+			ret = time.Now()
+		}
+	})
+
+	if len(dt) < 1 {
+		panic("znlib.Str2DateTime: dt is empty")
+	}
+
+	var lay string = ""
+	if fmt == nil { //default layout
+		if strings.Index(dt, "-") > 0 {
+			lay = LayoutDate
+		}
+
+		if strings.Index(dt, ":") > 0 {
+			if lay == "" {
+				lay = LayoutTime
+			} else {
+				lay = LayoutDateTime
+			}
+		}
+	} else {
+		lay = fmt[0]
+	}
+
+	ret, err := time.ParseInLocation(lay, dt, time.Local)
+	if err != nil {
+		panic(err)
+	}
+	return
 }
