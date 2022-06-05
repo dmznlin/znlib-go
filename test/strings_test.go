@@ -7,27 +7,27 @@ import (
 )
 
 func TestCopy(t *testing.T) {
-	if Copy("hello", 0, 2) != "he" ||
-		Copy("hello", 4, 1) != "o" {
+	if StrCopy("hello", 0, 2) != "he" ||
+		StrCopy("hello", 4, 1) != "o" {
 		t.Errorf("znlib.Copy wrong")
 	}
 }
 
 func TestTrim(t *testing.T) {
-	if Trim("  str ing  \n") != "str ing" {
+	if StrTrim("  str ing  \n") != "str ing" {
 		t.Errorf("znlib.Trim wrong")
 	}
 }
 
 func TestCopyLeft(t *testing.T) {
-	if CopyLeft("!!hello", 2) != "!!" {
+	if StrCopyLeft("!!hello", 2) != "!!" {
 		t.Errorf("znlib.CopyLeft wrong")
 	}
 }
 
 func TestCopyRight(t *testing.T) {
-	if CopyRight("hello!!", 2) != "!!" ||
-		CopyRight("!hello!", 20) != "!hello!" {
+	if StrCopyRight("hello!!", 2) != "!!" ||
+		StrCopyRight("!hello!", 20) != "!hello!" {
 		t.Errorf("znlib.CopyRight wrong")
 	}
 }

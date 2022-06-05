@@ -5,32 +5,94 @@
 package znlib
 
 import (
+	"bufio"
 	iniFile "github.com/go-ini/ini"
 	rotatelogs "github.com/lestrrat/go-file-rotatelogs"
 	"github.com/rifflock/lfshook"
 	"github.com/sirupsen/logrus"
-	"io"
 	"os"
 	"time"
 )
 
 const (
-	logInfo = iota
+	logInfo int8 = iota
 	logWarn
 	logEror
 )
 
-type logCfg struct {
+type Logcfg struct {
 	FilePath string        `ini:"filePath"`
 	FileName string        `ini:"filename"`
 	LogLevel logrus.Level  `ini:"loglevel"`
 	MaxAge   time.Duration `ini:"max_age"`
 }
 
-//全局日志对象
+//默认日志配置参数
+var Defaultlogcfg *Logcfg = nil
+
+func NewLogConfig() *Logcfg {
+	return &Logcfg{
+		FilePath: Application.LogPath,
+		FileName: "sys.log",
+		LogLevel: logrus.InfoLevel,
+		MaxAge:   24 * time.Hour,
+	}
+}
+
+/*LoadConfig 2022-06-05 14:49:34
+  参数: cFile,日志配置文件
+  对象: cfg,日志配置
+  描述: 从confFile中载入cfg的配置
+*/
+func (cfg *Logcfg) LoadConfig(cFile ...string) {
+	var cf string
+	if cFile == nil {
+		cf = Application.ConfigFile
+	} else {
+		cf = cFile[0]
+	}
+
+	if !FileExists(cf, false) {
+		return
+	}
+
+	ini, err := iniFile.Load(cf)
+	if err == nil {
+		sec := ini.Section("logger")
+		val := StrTrim(sec.Key("filePath").String())
+		if val != "" {
+			if StrPos(val, "$path") < 0 {
+				cfg.FilePath = val
+			} else {
+				cfg.FilePath = StrReplace(val, Application.ExePath, "$path\\", "$path/", "$path")
+				//替换路径中的变量
+			}
+
+			cfg.FilePath = FixPath(cfg.FilePath)
+			//添加路径分隔符
+		}
+
+		val = StrTrim(sec.Key("filename").String())
+		if val != "" {
+			cfg.FileName = val
+		}
+
+		levels := []string{"trace", "debug", "info", "warning", "error", "fatal", "panic"}
+		val = sec.Key("loglevel").In("info", levels)
+		cfg.LogLevel, _ = logrus.ParseLevel(val)
+
+		days := sec.Key("max_age").MustInt(30)
+		cfg.MaxAge = time.Duration(days) * 24 * time.Hour
+		//以天计时
+	}
+}
+
+//--------------------------------------------------------------------------------
+
+//Logger 全局日志对象
 var Logger *logrus.Logger
 
-//日志附加字段
+//LogFields 日志附加字段
 type LogFields = logrus.Fields
 
 /*addLog 2022-05-30 13:47:50
@@ -100,49 +162,38 @@ func Error(error string, fields ...logrus.Fields) {
 	addLog(logEror, error, fields...)
 }
 
+/*WriteDefaultLog 2022-06-05 14:46:04
+  参数: data,日志数据
+  描述: 将data写入默认日志文件
+*/
+func WriteDefaultLog(data string) {
+	if Defaultlogcfg == nil || len(data) == 0 {
+		return
+	}
+
+	fileHandle, err := os.OpenFile(Defaultlogcfg.FilePath+"log_def.log", os.O_RDONLY|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return
+	}
+	defer fileHandle.Close() //close file
+
+	buf := bufio.NewWriterSize(fileHandle, 200)
+	defer buf.Flush() //将缓冲中的数据写入
+
+	buf.WriteString(DateTime2Str(time.Now(), LayoutDateTimeMilli) + string(KeyTab) + data)
+	if StrCopyRight(data, 1) != string(KeyEnter) {
+		buf.WriteString(string(KeyEnter))
+	}
+}
+
 //-----------------------------------------------------------------------------
 func initLogger() {
 	Logger = logrus.New()
 	//new logger
 
-	cfg := logCfg{
-		FilePath: Application.LogPath,
-		FileName: "sys.log",
-		LogLevel: logrus.InfoLevel,
-		MaxAge:   30 * 24 * time.Hour,
-	} //default config
-
-	if FileExists(Application.ConfigFile, false) {
-		ini, err := iniFile.Load(Application.ConfigFile)
-		if err == nil {
-			sec := ini.Section("logger")
-			val := Trim(sec.Key("filePath").String())
-			if val != "" {
-				if StrPos(val, "$path") < 0 {
-					cfg.FilePath = val
-				} else {
-					cfg.FilePath = StrReplace(val, Application.ExePath, "$path\\", "$path/", "$path")
-					//替换路径中的变量
-				}
-
-				cfg.FilePath = FixPath(cfg.FilePath)
-				//添加路径分隔符
-			}
-
-			val = Trim(sec.Key("filename").String())
-			if val != "" {
-				cfg.FileName = val
-			}
-
-			levels := []string{"trace", "debug", "info", "warning", "error", "fatal", "panic"}
-			val = sec.Key("loglevel").In("info", levels)
-			cfg.LogLevel, _ = logrus.ParseLevel(val)
-
-			days := sec.Key("max_age").MustInt(30)
-			cfg.MaxAge = time.Duration(days) * 24 * time.Hour
-			//以天计时
-		}
-	}
+	Defaultlogcfg = NewLogConfig()
+	Defaultlogcfg.LoadConfig() //init default
+	cfg := Defaultlogcfg
 
 	if !FileExists(cfg.FilePath, true) {
 		MakeDir(cfg.FilePath) //创建日志目录
@@ -161,7 +212,12 @@ func initLogger() {
 		opt = append(opt, rotatelogs.WithLinkName(logfile))
 	}
 
-	writer, err := rotatelogs.New(cfg.FilePath+"%Y%m%d.log", opt...)
+	writer, err := rotatelogs.New(cfg.FilePath+cfg.FileName+"%Y%m%d.log", opt...)
+	if err != nil {
+		WriteDefaultLog("znlib.rotatelogs.New: " + err.Error())
+		return
+	}
+
 	writeMap := lfshook.WriterMap{
 		logrus.InfoLevel:  writer,
 		logrus.FatalLevel: writer,
@@ -171,24 +227,25 @@ func initLogger() {
 		logrus.PanicLevel: writer,
 	}
 
-	lfHook := lfshook.NewHook(writeMap, &logrus.JSONFormatter{
-		TimestampFormat: "2006-01-02 15:04:05.000000",
+	lfHook := lfshook.NewHook(writeMap, &logrus.TextFormatter{
+		TimestampFormat: LayoutDateTimeMilli,
 	})
 	Logger.AddHook(lfHook)
 
-	// You could set this to any `io.Writer` such as a file
+	/* You could set this to any `io.Writer` such as a file
 	file, err := os.OpenFile(logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
+		WriteDefaultLog("znlib.os.OpenFile: " + err.Error())
 		return
 	}
 
 	Logger.SetOutput(io.MultiWriter(file, os.Stdout))
-	//设置双输出
+	//设置双输出 */
 	Logger.SetLevel(cfg.LogLevel)
 
 	Logger.SetFormatter(&logrus.TextFormatter{
-		ForceQuote:      true,                         //键值对加引号
-		FullTimestamp:   true,                         //完整时间戳
-		TimestampFormat: "2006-01-02 15:04:05.000000", //时间格式
+		ForceQuote:      true,                //键值对加引号
+		FullTimestamp:   true,                //完整时间戳
+		TimestampFormat: LayoutDateTimeMilli, //时间格式
 	})
 }
