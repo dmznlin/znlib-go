@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	. "github.com/dmznlin/znlib-go/znlib"
 	"strconv"
@@ -19,4 +20,10 @@ func main() {
 
 	Info(DateTime2Str(Str2DateTime("2022-06-02")))
 	WriteDefaultLog("hello")
+
+	WaitSystemExit(func() error {
+		return errors.New("first cleaner")
+	}, func() error {
+		return errors.New("second cleaner")
+	})
 }

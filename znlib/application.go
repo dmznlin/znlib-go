@@ -7,18 +7,20 @@ package znlib
 import (
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 )
 
-//application full name
+//AppFile application full name
 var AppFile = os.Args[0]
 
-//application所在路径
+//AppPath application所在路径
 var AppPath = filepath.Dir(AppFile)
 
-//路径分隔符: / or \\
+//PathSeparator 路径分隔符: / or \\
 var PathSeparator = "/"
 
 //application相关属性
@@ -35,7 +37,7 @@ type application struct {
 	HostIP     []string //主机IP
 }
 
-//全局application对象
+//Application 全局对象
 var Application application
 
 /*OSName 2022-05-30 13:14:24
@@ -97,7 +99,7 @@ func MakeDir(dir string) {
 
 //--------------------------------------------------------------------------------
 
-//异常处理时的回调函数
+//ErrorHandleCallback 异常处理时的回调函数
 type ErrorHandleCallback = func(err any)
 
 /*ErrorHandle 2022-05-30 13:12:31
@@ -124,6 +126,40 @@ func ErrorHandle(throw bool, cb ...ErrorHandleCallback) {
 		panic(err)
 	}
 }
+
+//ClearWorkOnExists 程序关闭时的清理工作
+type ClearWorkOnExit = func() error
+
+/*WaitSystemExit 2022-06-08 15:24:34
+  参数: cw,清理函数
+  描述: 捕捉操作系统关闭信号,执行清理后退出
+*/
+func WaitSystemExit(cw ...ClearWorkOnExit) {
+	// 程序无法捕获信号 SIGKILL 和 SIGSTOP （终止和暂停进程），因此 os/signal 包对这两个信号无效。
+	signals := []os.Signal{syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT}
+	if Application.IsLinux {
+		signals = append(signals,
+			syscall.Signal(0x10), //syscall.SIGUSR1
+			syscall.Signal(0x11), // syscall.SIGUSR2
+		)
+	}
+
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, signals...)
+
+	s := <-ch //阻塞
+	close(ch)
+	Info("信号:" + s.String() + ",开始清理工作.")
+
+	for i := range cw {
+		if err := cw[i](); err != nil {
+			Error(err.Error())
+		}
+	}
+	Info("清理工作完成,系统退出.")
+}
+
+//--------------------------------------------------------------------------------
 
 /*initApp 2022-05-30 14:01:55
   描述: 初始化

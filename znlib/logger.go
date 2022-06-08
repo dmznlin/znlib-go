@@ -27,7 +27,7 @@ type Logcfg struct {
 	MaxAge   time.Duration `ini:"max_age"`
 }
 
-//默认日志配置参数
+//Defaultlogcfg 默认日志配置参数
 var Defaultlogcfg *Logcfg = nil
 
 func NewLogConfig() *Logcfg {
@@ -103,7 +103,7 @@ type LogFields = logrus.Fields
 */
 func addLog(logType int8, log string, fields ...LogFields) {
 	if Logger == nil {
-		logrus.Warn("znlib.Logger is nil(not init)")
+		WriteDefaultLog("znlib.Logger is nil(not init)")
 		return
 	}
 
