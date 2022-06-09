@@ -228,7 +228,9 @@ func initLogger() {
 	}
 
 	lfHook := lfshook.NewHook(writeMap, &logrus.TextFormatter{
-		TimestampFormat: LayoutDateTimeMilli,
+		ForceQuote:      true,                //键值对加引号
+		FullTimestamp:   true,                //完整时间戳
+		TimestampFormat: LayoutDateTimeMilli, //时间格式
 	})
 	Logger.AddHook(lfHook)
 

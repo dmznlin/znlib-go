@@ -198,7 +198,7 @@ func initApp() {
 		for _, val := range addr {
 			if ipnet, ok := val.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 				if ipnet.IP.To4() != nil {
-					//Application.HostIP = append(Application.HostIP, ipnet.IP.String())
+					Application.HostIP = append(Application.HostIP, ipnet.IP.String())
 				}
 			}
 		}
