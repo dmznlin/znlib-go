@@ -18,8 +18,9 @@ import (
   描述: 从start开始,复制len长的str子字符串
 */
 func StrCopy(str string, start, length int) string {
-	maxLen := len(str)
-	if start > maxLen-1 { //超出索引
+	buf := []rune(str)
+	maxLen := len(buf)
+	if maxLen < 1 || start >= maxLen { //超出索引
 		return ""
 	}
 
@@ -27,7 +28,7 @@ func StrCopy(str string, start, length int) string {
 	if length > maxLen {
 		length = maxLen
 	}
-	return str[start:length]
+	return string(buf[start:length])
 }
 
 /*StrCopyLeft 2022-05-30 13:41:02
@@ -36,7 +37,8 @@ func StrCopy(str string, start, length int) string {
   描述: 从str开始位置复制长度为length的子字符串
 */
 func StrCopyLeft(str string, length int) string {
-	maxLen := len(str)
+	buf := []rune(str)
+	maxLen := len(buf)
 	if maxLen < 1 {
 		return ""
 	}
@@ -44,7 +46,7 @@ func StrCopyLeft(str string, length int) string {
 	if length > maxLen {
 		length = maxLen
 	}
-	return str[:length]
+	return string(buf[:length])
 }
 
 /*StrCopyRight 2022-05-30 13:41:20
@@ -53,7 +55,8 @@ func StrCopyLeft(str string, length int) string {
   描述: 从str末尾向前复制长度为length的子字符串
 */
 func StrCopyRight(str string, length int) string {
-	maxLen := len(str)
+	buf := []rune(str)
+	maxLen := len(buf)
 	if maxLen < 1 {
 		return ""
 	}
@@ -61,7 +64,7 @@ func StrCopyRight(str string, length int) string {
 	if length > maxLen {
 		length = maxLen
 	}
-	return str[maxLen-length:]
+	return string(str[maxLen-length:])
 }
 
 /*StrTrim 2022-05-30 13:41:48
