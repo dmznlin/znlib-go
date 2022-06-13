@@ -11,6 +11,7 @@ import (
 	"github.com/rifflock/lfshook"
 	"github.com/sirupsen/logrus"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -20,18 +21,34 @@ const (
 	logEror
 )
 
-type Logcfg struct {
+type LogConfig struct {
 	FilePath string        `ini:"filePath"`
 	FileName string        `ini:"filename"`
 	LogLevel logrus.Level  `ini:"loglevel"`
 	MaxAge   time.Duration `ini:"max_age"`
 }
 
-//Defaultlogcfg 默认日志配置参数
-var Defaultlogcfg *Logcfg = nil
+//logcfg 默认日志配置参数
+var logcfg *LogConfig = nil
 
-func NewLogConfig() *Logcfg {
-	return &Logcfg{
+//logcfg_init 初始化日志配置
+var logcfg_init sync.Once
+
+/*initLogConfig 2022-06-13 15:26:57
+  描述: 初始化默认日志配置
+*/
+func initLogConfig() {
+	logcfg_init.Do(func() {
+		logcfg = NewLogConfig()
+		logcfg.LoadConfig()
+	})
+}
+
+/*NewLogConfig 2022-06-13 15:27:40
+  描述: 日志配置
+*/
+func NewLogConfig() *LogConfig {
+	return &LogConfig{
 		FilePath: Application.LogPath,
 		FileName: "sys.log",
 		LogLevel: logrus.InfoLevel,
@@ -44,7 +61,7 @@ func NewLogConfig() *Logcfg {
   对象: cfg,日志配置
   描述: 从confFile中载入cfg的配置
 */
-func (cfg *Logcfg) LoadConfig(cFile ...string) {
+func (cfg *LogConfig) LoadConfig(cFile ...string) {
 	var cf string
 	if cFile == nil {
 		cf = Application.ConfigFile
@@ -103,7 +120,7 @@ type LogFields = logrus.Fields
 */
 func addLog(logType int8, log string, fields ...LogFields) {
 	if Logger == nil {
-		WriteDefaultLog("znlib.Logger is nil(not init)")
+		WriteDefaultLog("msg:" + log)
 		return
 	}
 
@@ -167,17 +184,21 @@ func Error(error string, fields ...logrus.Fields) {
   描述: 将data写入默认日志文件
 */
 func WriteDefaultLog(data string) {
-	if Defaultlogcfg == nil || len(data) == 0 {
+	if len(data) == 0 {
 		return
 	}
 
-	fileHandle, err := os.OpenFile(Defaultlogcfg.FilePath+"log_def.log", os.O_RDONLY|os.O_CREATE|os.O_APPEND, 0666)
+	if logcfg == nil {
+		initLogConfig()
+	}
+
+	hwnd, err := os.OpenFile(logcfg.FilePath+"log_def.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return
 	}
-	defer fileHandle.Close() //close file
+	defer hwnd.Close() //close file
 
-	buf := bufio.NewWriterSize(fileHandle, 200)
+	buf := bufio.NewWriterSize(hwnd, 200)
 	defer buf.Flush() //将缓冲中的数据写入
 
 	buf.WriteString(DateTime2Str(time.Now(), LayoutDateTimeMilli) + string(KeyTab) + data)
@@ -187,22 +208,20 @@ func WriteDefaultLog(data string) {
 }
 
 //-----------------------------------------------------------------------------
+
 func initLogger() {
 	Logger = logrus.New()
 	//new logger
+	initLogConfig()
 
-	Defaultlogcfg = NewLogConfig()
-	Defaultlogcfg.LoadConfig() //init default
-	cfg := Defaultlogcfg
-
-	if !FileExists(cfg.FilePath, true) {
-		MakeDir(cfg.FilePath) //创建日志目录
+	if !FileExists(logcfg.FilePath, true) {
+		MakeDir(logcfg.FilePath) //创建日志目录
 	}
 
-	logfile := cfg.FilePath + cfg.FileName
+	logfile := logcfg.FilePath + logcfg.FileName
 	opt := []rotatelogs.Option{
 		// 设置最大保存时间(7天)
-		rotatelogs.WithMaxAge(cfg.MaxAge),
+		rotatelogs.WithMaxAge(logcfg.MaxAge),
 		// 设置日志切割时间间隔(1天)
 		rotatelogs.WithRotationTime(24 * time.Hour),
 	}
@@ -212,7 +231,7 @@ func initLogger() {
 		opt = append(opt, rotatelogs.WithLinkName(logfile))
 	}
 
-	writer, err := rotatelogs.New(cfg.FilePath+cfg.FileName+"%Y%m%d.log", opt...)
+	writer, err := rotatelogs.New(logcfg.FilePath+logcfg.FileName+"%Y%m%d.log", opt...)
 	if err != nil {
 		WriteDefaultLog("znlib.rotatelogs.New: " + err.Error())
 		return
@@ -243,7 +262,7 @@ func initLogger() {
 
 	Logger.SetOutput(io.MultiWriter(file, os.Stdout))
 	//设置双输出 */
-	Logger.SetLevel(cfg.LogLevel)
+	Logger.SetLevel(logcfg.LogLevel)
 
 	Logger.SetFormatter(&logrus.TextFormatter{
 		ForceQuote:      true,                //键值对加引号

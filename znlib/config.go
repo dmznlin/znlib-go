@@ -26,8 +26,8 @@ func init() {
 	if FileExists(Application.ConfigFile, false) {
 		ini, err := iniFile.Load(Application.ConfigFile)
 		if err == nil {
-			sec := ini.Section("znlib")
-			cfg.logger = sec.Key("EnableLogger").In("true", []string{"true", "false"}) == "true"
+			sec := ini.Section("logger")
+			cfg.logger = sec.Key("enable").In("true", []string{"true", "false"}) == "true"
 		}
 	}
 
