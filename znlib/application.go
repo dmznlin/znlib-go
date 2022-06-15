@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 )
 
@@ -25,16 +26,19 @@ var PathSeparator = "/"
 
 //application相关属性
 type application struct {
-	ExeName    string   //exe full
-	ExePath    string   //exe所在路径
-	LogPath    string   //日志目录
-	ConfigFile string   //主配置文件
-	ConfigDB   string   //数据库配置
-	PathSymbol string   //路径分隔符
-	IsWindows  bool     //win
-	IsLinux    bool     //linux
-	HostName   string   //主机名称
-	HostIP     []string //主机IP
+	ExeName    string //exe full
+	ExePath    string //exe所在路径
+	LogPath    string //日志目录
+	ConfigFile string //主配置文件
+	ConfigDB   string //数据库配置
+	PathSymbol string //路径分隔符
+
+	IsWindows bool     //win
+	IsLinux   bool     //linux
+	HostName  string   //主机名称
+	HostIP    []string //主机IP
+
+	SyncLock sync.RWMutex //全局同步锁
 }
 
 //Application 全局对象
