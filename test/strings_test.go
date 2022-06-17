@@ -74,3 +74,10 @@ func TestDate2Str(t *testing.T) {
 		t.Errorf("znlib.DateTime2Str wrong")
 	}
 }
+
+func TestStrDel(t *testing.T) {
+	var str = "中eng文混杂字符串"
+	if StrDel(str, 0, 9) != "" {
+		t.Errorf("znlib.Strdel wrong")
+	}
+}

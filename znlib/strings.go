@@ -64,7 +64,7 @@ func StrCopyRight(str string, length int) string {
 	if length > maxLen {
 		length = maxLen
 	}
-	return string(str[maxLen-length:])
+	return string(buf[maxLen-length:])
 }
 
 /*StrTrim 2022-05-30 13:41:48
@@ -73,6 +73,29 @@ func StrCopyRight(str string, length int) string {
 */
 func StrTrim(str string) string {
 	return strings.Trim(str, string([]byte{9, 10, 13, 32}))
+}
+
+/*StrDel 2022-06-17 16:05:54
+  参数: str,字符串
+  参数: from,开始位置
+  参数: end,结束位置
+  描述: 从str中删除from-end子字符串
+*/
+func StrDel(str string, from, end int) string {
+	buf := []rune(str)
+	maxLen := len(buf)
+	if maxLen < 1 || end < from {
+		return ""
+	}
+
+	if from < 0 {
+		from = 0
+	}
+	if end >= maxLen-1 {
+		return string(buf[0:from])
+	} else {
+		return string(append(buf[0:from], buf[end+1:]...))
+	}
 }
 
 /*StrReplace 2022-05-30 13:43:26

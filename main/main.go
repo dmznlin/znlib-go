@@ -20,6 +20,7 @@ func main() {
 
 	Info(DateTime2Str(Str2DateTime("2022-06-02")))
 	WriteDefaultLog("hello")
+	Info(StrDel("hello", 3, 6))
 
 	WaitSystemExit(func() error {
 		return errors.New("first cleaner")
