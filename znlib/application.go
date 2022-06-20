@@ -103,23 +103,24 @@ func MakeDir(dir string) {
 
 //--------------------------------------------------------------------------------
 
-//ErrorHandleCallback 异常处理时的回调函数
-type ErrorHandleCallback = func(err any)
+//DeferHandleCallback 异常处理时的回调函数
+type DeferHandleCallback = func(err any)
 
-/*ErrorHandle 2022-05-30 13:12:31
+/*DeferHandle 2022-05-30 13:12:31
   参数: throw,重新抛出异常
+  参数: caller,调用者名称
   参数: cb,回调函数
-  描述: 默认异常处理
+  描述: 用于defer默认调用
 */
-func ErrorHandle(throw bool, cb ...ErrorHandleCallback) {
+func DeferHandle(throw bool, caller string, cb ...DeferHandleCallback) {
 	err := recover()
 	switch t := err.(type) {
 	case nil:
 		//no error
 	case error:
-		Error("znlib.ErrorHandle: " + t.Error())
+		Error(caller + ": " + t.Error())
 	default:
-		Error("znlib.ErrorHandle", LogFields{"data: ": t})
+		Error(caller, LogFields{"data: ": t})
 	}
 
 	for _, f := range cb {
@@ -129,6 +130,15 @@ func ErrorHandle(throw bool, cb ...ErrorHandleCallback) {
 	if throw { //re-panic
 		panic(err)
 	}
+}
+
+/*ErrorHandle 2022-05-30 13:12:31
+  参数: throw,重新抛出异常
+  参数: cb,回调函数
+  描述: 默认异常处理
+*/
+func ErrorHandle(throw bool, cb ...DeferHandleCallback) {
+	DeferHandle(throw, "znlib.ErrorHandle", cb...)
 }
 
 //ClearWorkOnExists 程序关闭时的清理工作
