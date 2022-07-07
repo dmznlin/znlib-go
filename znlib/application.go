@@ -5,6 +5,7 @@
 package znlib
 
 import (
+	"github.com/pkg/errors"
 	"net"
 	"os"
 	"os/signal"
@@ -139,6 +140,23 @@ func DeferHandle(throw bool, caller string, cb ...DeferHandleCallback) {
 */
 func ErrorHandle(throw bool, cb ...DeferHandleCallback) {
 	DeferHandle(throw, "znlib.ErrorHandle", cb...)
+}
+
+/*ErrorPanic 2022-07-07 12:40:42
+  参数: err,异常
+  参数: message,描述信息
+  描述: 抛出带描述信息的异常
+*/
+func ErrorPanic(err error, message ...string) {
+	if message == nil {
+		panic(err)
+	} else {
+		for _, msg := range message {
+			err = errors.WithMessage(err, msg)
+		}
+
+		panic(err)
+	}
 }
 
 //ClearWorkOnExists 程序关闭时的清理工作
