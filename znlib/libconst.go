@@ -136,3 +136,14 @@ const (
 	LayoutDateTime      = "2006-01-02 15:04:05"     //日期 + 时间
 	LayoutDateTimeMilli = "2006-01-02 15:04:05.000" //日期 + 时间 + 毫秒
 )
+
+//ValueRelation 数值比较关系
+type ValueRelation = byte
+
+const (
+	ValEqual        ValueRelation = iota // =
+	ValGreater                           // >
+	ValGreaterEqual                      // >=
+	ValLess                              // <
+	ValLessEqual                         // <=
+)

@@ -6,3 +6,6 @@ https://github.com/subpop/go-ini.git
 
 *.Logrus: Logrus is a structured logger for Go.
 https://github.com/sirupsen/logrus.git
+
+*.decimal: Arbitrary-precision fixed-point decimal numbers in go
+https://github.com/shopspring/decimal.git
