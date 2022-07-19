@@ -4,6 +4,66 @@
 ******************************************************************************/
 package znlib
 
+const (
+	LayoutTime          = "15:04:05"                //时间
+	LayoutTimeMilli     = "15:04:05.000"            //时间 + 毫秒
+	LayoutDate          = "2006-01-02"              //日期
+	LayoutDateTime      = "2006-01-02 15:04:05"     //日期 + 时间
+	LayoutDateTimeMilli = "2006-01-02 15:04:05.000" //日期 + 时间 + 毫秒
+)
+
+//ValueRelation 数值比较关系
+type ValueRelation = byte
+
+const (
+	ValEqual        ValueRelation = iota // =
+	ValGreater                           // >
+	ValGreaterEqual                      // >=
+	ValLess                              // <
+	ValLessEqual                         // <=
+)
+
+type SqlDbType = string
+
+/*数据库类型定义
+  常量字符串在构建时,尽量与数据库字段名不同
+*/
+const (
+	SQLDB_mssql      SqlDbType = "$sqldb_type.mssql"
+	SQLDB_mysql      SqlDbType = "$sqldb_type.mysql"
+	SQLDB_db2        SqlDbType = "$sqldb_type.db2"
+	SQLDB_oracle     SqlDbType = "$sqldb_type.oracle"
+	SQLDB_postgreSQL SqlDbType = "$sqldb_type.postgresql"
+)
+
+//SQLDB_Default 默认数据库类型
+var SQLDB_Default SqlDbType = SQLDB_mssql
+
+//SQLDB_Types 数据库类型列表
+var SQLDB_Types = [...]string{SQLDB_mssql, SQLDB_mysql, SQLDB_db2, SQLDB_oracle, SQLDB_postgreSQL}
+
+type SqlValueQuotes = string
+
+const (
+	SqlQuotes_Single SqlValueQuotes = "'"  //单引号
+	SqlQuotes_Double SqlValueQuotes = "\"" //双引号
+)
+
+type SqlStructTag = string
+
+//构建SQL的结构体Tag
+const (
+	SQLTag_Table   SqlStructTag = "table"
+	SQLTag_DB      SqlStructTag = "db"
+	SQLTag_Insert  SqlStructTag = "i"
+	SQLTag_Update  SqlStructTag = "u"
+	SQLTag_Delete  SqlStructTag = "d"
+	SQLTag_Include SqlStructTag = "+"
+	SQLTag_Exclude SqlStructTag = "-"
+)
+
+//--------------------------------------------------------------------------------
+
 // Key define
 type Key = uint16
 
@@ -127,23 +187,4 @@ const (
 	shift_pressed      = 0x10
 
 	k32_keyEvent = 0x1
-)
-
-const (
-	LayoutTime          = "15:04:05"                //时间
-	LayoutTimeMilli     = "15:04:05.000"            //时间 + 毫秒
-	LayoutDate          = "2006-01-02"              //日期
-	LayoutDateTime      = "2006-01-02 15:04:05"     //日期 + 时间
-	LayoutDateTimeMilli = "2006-01-02 15:04:05.000" //日期 + 时间 + 毫秒
-)
-
-//ValueRelation 数值比较关系
-type ValueRelation = byte
-
-const (
-	ValEqual        ValueRelation = iota // =
-	ValGreater                           // >
-	ValGreaterEqual                      // >=
-	ValLess                              // <
-	ValLessEqual                         // <=
 )

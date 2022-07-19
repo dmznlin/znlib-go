@@ -1,11 +1,25 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	. "github.com/dmznlin/znlib-go/znlib"
+	"github.com/shopspring/decimal"
 	"strconv"
+	"time"
 )
+
+type PS struct {
+	F1 string    `db:"name"`
+	F2 int       `db:"addr"`
+	F3 time.Time `db:"phone"`
+}
+
+type userInfo struct {
+	PS
+	Id   int    `table:"sys_user" db:"r_id" `
+	Age  int    `db:"u_age"`
+	Name string `db:"u_name" table:"sys_user"`
+}
 
 func main() {
 	fmt.Println(StrCopy("dmzn", 3, 3))
@@ -22,9 +36,31 @@ func main() {
 	WriteDefaultLog("hello")
 	Info(StrDel("hello", 3, 6))
 
-	WaitSystemExit(func() error {
-		return errors.New("first cleaner")
-	}, func() error {
-		return errors.New("second cleaner")
-	})
+	var user = userInfo{
+		Id:   10,
+		Name: "dmzn",
+		Age:  5,
+	}
+	Info(SQLFieldsJoin(&user))
+
+	sql, err := SQLInsert(&user, "hello", "asdfds")
+	if err == nil {
+		Info(sql)
+	} else {
+		Error(err.Error())
+	}
+
+	decimal.DivisionPrecision = 3
+	v, ok := IsNumber("2.12345")
+	if ok {
+		Info(v.Div(decimal.NewFromInt32(3)).String())
+	}
+
+	/*
+		WaitSystemExit(func() error {
+			return errors.New("first cleaner")
+		}, func() error {
+			return errors.New("second cleaner")
+		})
+	*/
 }

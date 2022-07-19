@@ -208,12 +208,27 @@ func StrPos(str string, sub string) int {
 	return StrPosFrom([]rune(str), []rune(sub), 0)
 }
 
+/*StrIn 2022-07-19 20:00:36
+  参数: str,字符串
+  参数: array,字符串数组
+  描述: 判断str是否在array中,不区分大小写
+*/
+func StrIn(str string, array ...string) bool {
+	for _, in := range array {
+		if strings.EqualFold(in, str) {
+			return true
+		}
+	}
+
+	return false
+}
+
 /*Str2Bit 2022-05-30 13:27:53
   参数: str,字符串
   描述: 使用str构建一个字节
 */
 func Str2Bit(str string) (ret byte) {
-	defer ErrorHandle(false, func(err any) {
+	defer DeferHandle(false, "znlib.Str2Bit", func(err any) {
 		if err != nil {
 			ret = 0
 		}
@@ -252,7 +267,7 @@ func StrReverse(str string) string {
   描述: 使用fmt格式转换dt为字符串
 */
 func DateTime2Str(dt time.Time, fmt ...string) (ret string) {
-	defer ErrorHandle(false, func(err any) {
+	defer DeferHandle(false, "znlib.DateTime2Str", func(err any) {
 		if err != nil {
 			ret = time.Now().Format(LayoutDateTime)
 		}
@@ -286,7 +301,7 @@ func DateTime2Str(dt time.Time, fmt ...string) (ret string) {
   描述: 使用fmt格式转换dt为时间值
 */
 func Str2DateTime(dt string, fmt ...string) (ret time.Time) {
-	defer ErrorHandle(false, func(err any) {
+	defer DeferHandle(false, "znlib.Str2DateTime", func(err any) {
 		if err != nil {
 			ret = time.Now()
 		}

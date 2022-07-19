@@ -29,7 +29,7 @@ func (rp *TaskRunner) Schedule(task func()) {
 	rp.limitChan <- Placeholder
 
 	go func() {
-		defer ErrorHandle(false, func(err any) {
+		defer DeferHandle(false, "znlib.TaskRunner.Schedule", func(err any) {
 			<-rp.limitChan
 		})
 

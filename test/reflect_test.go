@@ -6,8 +6,8 @@ import (
 )
 
 func TestContains(t *testing.T) {
-	if znlib.Contains(3, []int{1, 2, 3, 4}) != 2 {
-		t.Errorf("znlib.Contains error")
+	if znlib.IsIn(3, []int{1, 2, 3, 4}) != 2 {
+		t.Errorf("znlib.IsIn error")
 	}
 }
 
@@ -23,5 +23,18 @@ func TestIsNumber(t *testing.T) {
 	_, ok := znlib.IsNumber("12.3", false)
 	if ok != false {
 		t.Errorf("znlib.Isnumber error")
+	}
+}
+
+func TestStructTags(t *testing.T) {
+	var user struct {
+		ID   int    `db:"id"`
+		Name string `db:"name"`
+		Age  int    `db:"age"`
+	}
+
+	tags, _ := znlib.StructTags(&user, "db", true)
+	if tags == nil || len(tags) != 3 {
+		t.Error("znlib.StructTags error")
 	}
 }

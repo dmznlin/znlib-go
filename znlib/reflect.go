@@ -6,17 +6,20 @@ package znlib
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"github.com/shopspring/decimal" //浮点数计算
 	"reflect"
 	"strconv"
+	"sync"
 )
 
-/*Contains 2022-07-17 17:25:38
+/*IsIn 2022-07-17 17:25:38
   参数: val,值
   参数: array,数据
   描述: 判断val是否在array中,返回索引
 */
-func Contains(val interface{}, array interface{}) int {
+func IsIn(val interface{}, array interface{}) int {
 	switch reflect.TypeOf(array).Kind() {
 	case reflect.Slice, reflect.Array:
 		s := reflect.ValueOf(array)
@@ -154,4 +157,126 @@ func IsNumber(str string, isfloat ...bool) (decimal.Decimal, bool) {
 	} else {
 		return val, isfloat[0] == true || val.IsInteger()
 	}
+}
+
+/*ReflectValue 2022-07-19 11:12:17
+  参数: obj,对象
+  描述: 返回obj的Value反射数据
+*/
+func ReflectValue(obj interface{}) reflect.Value {
+	var val reflect.Value = reflect.ValueOf(obj)
+	if val.Kind() == reflect.Ptr {
+		return val.Elem()
+	} else {
+		return val
+	}
+}
+
+//StructFieldsWalker 结构体步进函数
+type StructFieldsWalker = func(field reflect.StructField, value reflect.Value, level int) bool
+
+/*WalkStruct 2022-07-19 11:23:14
+  参数: obj,对象
+  参数: sw,步进函数
+  参数: level,当前层级(默认不传)
+  描述: 检索obj的所有字段,并使用sw处理每个字段
+*/
+func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
+	var curentLevel int = 1
+	if level != nil {
+		curentLevel = level[0]
+		if curentLevel < 1 {
+			curentLevel = 1
+		}
+	}
+
+	if sw == nil { //no walker
+		str := "znlib.WalkStruct: walker is nil"
+		if curentLevel == 1 {
+			Error(str)
+		}
+		return errors.New(str)
+	}
+
+	objValue := ReflectValue(obj)
+	objType := objValue.Type()
+	if objValue.Kind() != reflect.Struct { //invalid type
+		str := fmt.Sprintf("znlib.WalkStruct: [%s] is not struct", objType.Name())
+		if curentLevel == 1 {
+			Error(str)
+		}
+		return errors.New(str)
+	}
+
+	var next bool
+	fieldCount := objType.NumField()
+
+	for nIdx := 0; nIdx < fieldCount; nIdx++ {
+		field := objType.Field(nIdx)
+		if field.IsExported() {
+			fieldValue := objValue.Field(nIdx)
+			next = sw(field, fieldValue, curentLevel)
+			if next && fieldValue.Kind() == reflect.Struct {
+				WalkStruct(fieldValue.Interface(), sw, curentLevel+1)
+			}
+		}
+	}
+
+	return nil
+}
+
+type structTags struct {
+	typ  reflect.Type      //struct type
+	key  string            //tag(key)名
+	tags map[string]string //k:字段名;v:tag值
+}
+
+var structTagsBuffer = struct {
+	locker sync.RWMutex //同步锁定
+	buffer []structTags //缓存
+}{
+	buffer: make([]structTags, 0),
+}
+
+/*StructTags 2022-07-19 12:34:35
+  参数: obj,对象
+  参数: key,Tag名
+  参数: deep,检索全部层级
+  描述: 获取obj包含key的字段名和tag值
+*/
+func StructTags(obj interface{}, key string, deep bool) (map[string]string, error) {
+	var nTags structTags
+	objType := ReflectValue(obj).Type()
+	structTagsBuffer.locker.RLock()
+
+	for _, nTags = range structTagsBuffer.buffer {
+		if nTags.typ == objType && nTags.key == key {
+			return nTags.tags, nil
+		}
+	}
+	structTagsBuffer.locker.RUnlock()
+
+	nTags.typ = objType
+	nTags.key = key
+	nTags.tags = make(map[string]string)
+
+	var tag string
+	err := WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) bool {
+		if value.Kind() != reflect.Struct {
+			tag = field.Tag.Get(key)
+			if tag != "" {
+				nTags.tags[field.Name] = tag
+			}
+		}
+
+		return deep || level == 1 //检索1层或全部
+	})
+
+	if err == nil { //存入缓存
+		structTagsBuffer.locker.Lock()
+		structTagsBuffer.buffer = append(structTagsBuffer.buffer, nTags)
+		structTagsBuffer.locker.Unlock()
+	}
+
+	return nTags.tags, err
 }

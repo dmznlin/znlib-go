@@ -34,8 +34,8 @@ func (g *RoutineGroup) RunSafe(fn func()) {
 	g.waitGroup.Add(1)
 
 	go func() {
-		defer g.waitGroup.Done() //2.done
-		defer ErrorHandle(false) //1.log first
+		defer g.waitGroup.Done()                               //2.done
+		defer DeferHandle(false, "znlib.RoutineGroup.RunSafe") //1.log first
 		fn()
 	}()
 }

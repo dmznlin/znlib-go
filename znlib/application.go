@@ -94,7 +94,7 @@ func FixPath(dir string) string {
   描述: 创建dir目录
 */
 func MakeDir(dir string) {
-	defer ErrorHandle(false)
+	defer DeferHandle(false, "znlib.MakeDir")
 	err := os.MkdirAll(dir, 755)
 
 	if err != nil {
@@ -131,15 +131,6 @@ func DeferHandle(throw bool, caller string, cb ...DeferHandleCallback) {
 	if throw { //re-panic
 		panic(err)
 	}
-}
-
-/*ErrorHandle 2022-05-30 13:12:31
-  参数: throw,重新抛出异常
-  参数: cb,回调函数
-  描述: 默认异常处理
-*/
-func ErrorHandle(throw bool, cb ...DeferHandleCallback) {
-	DeferHandle(throw, "znlib.ErrorHandle", cb...)
 }
 
 /*ErrorPanic 2022-07-07 12:40:42
