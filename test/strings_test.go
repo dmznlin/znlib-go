@@ -44,6 +44,12 @@ func TestStrIn(t *testing.T) {
 	}
 }
 
+func TestStrIndex(t *testing.T) {
+	if StrIndex(2, "a", "b", "c") != "c" {
+		t.Errorf("znlib.StrIndex wrong")
+	}
+}
+
 func TestStrReplace(t *testing.T) {
 	if StrReplace("中文English", "0", "文", "eng") != "中00lish" {
 		t.Errorf("znlib.StrReplace wrong")

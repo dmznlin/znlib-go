@@ -223,6 +223,36 @@ func StrIn(str string, array ...string) bool {
 	return false
 }
 
+/*StrIndex 2022-07-20 17:44:33
+  参数: idx,索引
+  参数: array,字符串数组
+  描述: 返回array中索引为idx的字符串
+*/
+func StrIndex(idx int, array ...string) string {
+	if idx >= 0 && idx < len(array) {
+		return array[idx]
+	} else {
+		return ""
+	}
+}
+
+/*StrIF 2022-07-20 17:47:52
+  参数: ok,选项
+  参数: array,字符串数组
+  描述: 从array中选择字符串
+*/
+func StrIF(ok bool, array ...string) string {
+	if len(array) < 2 {
+		return ""
+	}
+
+	if ok {
+		return array[0]
+	} else {
+		return array[1]
+	}
+}
+
 /*Str2Bit 2022-05-30 13:27:53
   参数: str,字符串
   描述: 使用str构建一个字节

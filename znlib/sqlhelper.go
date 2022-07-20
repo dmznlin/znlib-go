@@ -9,6 +9,11 @@
 		Name string `db:"name"`
 		Age  int    `db:"age"`
 	}
+  2.构建SQL语句示例:
+    sql, err := SQLInsert(&user, SQLTag_Include, SQLDB_mssql, "ID", "name")
+    *.SQLTag_Include,SQLTag_Exclude: 构建时只包含/需排除 指定的字段
+    *.字段可以是 struct结构体的字段,或 数据库字段名
+    *.SQLDB_mssql: 构建符合mssql规范的字符串
 ******************************************************************************/
 package znlib
 
@@ -22,46 +27,26 @@ import (
 	"time"
 )
 
-/*SQLFields 2022-07-15 15:54:59
-  参数: obj,struct结构体
-  描述: 返回obj结构体中tag=db的字段名列表
-*/
-func SQLFields(obj interface{}) (fields []string) {
-	tags, err := StructTagList(obj, "db", true)
-	if err != nil {
-		return nil
-	}
-
-	var idx = 0
-	fields = make([]string, len(tags))
-	for _, tag := range tags {
-		fields[idx] = tag
-		idx++
-	}
-
-	return
-}
-
 /*SQLFieldsJoin 2022-07-15 16:25:23
   参数: obj,struct结构体
   描述: 拼接字段名
 */
 func SQLFieldsJoin(obj interface{}) string {
-	fields := SQLFields(obj)
-	if fields == nil {
-		return "*"
-	} else {
+	fields, err := StructTagList(obj, "db", true)
+	if err == nil {
 		return strings.Join(fields, ",")
+	} else {
+		return "*"
 	}
 }
 
 /*SQLInsert 2022-07-19 19:15:13
   参数: obj,struct结构体
-  参数: fiedls...string,排除的字段 或 包含的字段
+  参数: fields,排除的字段 或 包含的字段
   描述: 使用obj构建insert sql语句
 */
-func SQLInsert(obj interface{}, fiedls ...string) (sql string, err error) {
-	defer DeferHandle(false, "SQLFields", func(err any) {
+func SQLInsert(obj interface{}, fields ...string) (sql string, err error) {
+	defer DeferHandle(false, "znlib.SQLInsert", func(err any) {
 		if err != nil {
 			err = errors.New(fmt.Sprintf("znlib.SQLInsert: %v", err))
 		}
@@ -71,25 +56,21 @@ func SQLInsert(obj interface{}, fiedls ...string) (sql string, err error) {
 		nBool   bool
 		nTag    string
 		nTable  = ""
-		nDBType = SQLDB_mssql
+		nDBType = SQLDB_Default
 
 		nPrefix  = make([]string, 0)
 		nSuffix  = make([]string, 0)
-		nInclude = StrIn(SQLTag_Include, fiedls...)
+		nInclude = StrIn(SQLTag_Include, fields...)
 	)
 
 	for _, dt := range SQLDB_Types { //find database type
-		if StrIn(dt, fiedls...) {
+		if StrIn(dt, fields...) {
 			nDBType = dt
 			break
 		}
 	}
 
 	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) bool {
-		if field.Anonymous {
-			return true
-		}
-
 		if nTable == "" { //table
 			nTag = field.Tag.Get(SQLTag_Table)
 			if nTag != "" {
@@ -99,7 +80,7 @@ func SQLInsert(obj interface{}, fiedls ...string) (sql string, err error) {
 
 		nTag = field.Tag.Get(SQLTag_DB)
 		if nTag != "" { //field
-			nBool = StrIn(field.Name, fiedls...) || StrIn(nTag, fiedls...)
+			nBool = StrIn(field.Name, fields...) || StrIn(nTag, fields...)
 			//struct field or db field
 
 			if (nInclude && nBool) || (!nInclude && !nBool) {
@@ -108,6 +89,9 @@ func SQLInsert(obj interface{}, fiedls ...string) (sql string, err error) {
 				nSuffix = append(nSuffix, SQLValue(value.Interface(), nDBType))
 				//value
 			}
+
+			return false
+			//带有db的字段,无需深层解析
 		}
 		return true
 	})
@@ -123,6 +107,74 @@ func SQLInsert(obj interface{}, fiedls ...string) (sql string, err error) {
 
 	sql = fmt.Sprintf("insert into %s(%s) values(%s)", nTable,
 		strings.Join(nPrefix, ","), strings.Join(nSuffix, ","))
+	return sql, nil
+}
+
+/*SQLUpdate 2022-07-20 17:24:20
+  参数: obj,struct结构体
+  参数: where,更新条件
+  参数: fields,排除的字段 或 包含的字段
+  描述: 使用obj构建update sql语句
+*/
+func SQLUpdate(obj interface{}, where string, fields ...string) (sql string, err error) {
+	defer DeferHandle(false, "znlib.SQLUpdate", func(err any) {
+		if err != nil {
+			err = errors.New(fmt.Sprintf("znlib.SQLUpdate: %v", err))
+		}
+	})
+
+	var (
+		nBool   bool
+		nTag    string
+		nTable  = ""
+		nDBType = SQLDB_Default
+
+		nFields  = make([]string, 0)
+		nInclude = StrIn(SQLTag_Include, fields...)
+	)
+
+	for _, dt := range SQLDB_Types { //find database type
+		if StrIn(dt, fields...) {
+			nDBType = dt
+			break
+		}
+	}
+
+	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) bool {
+		if nTable == "" { //table
+			nTag = field.Tag.Get(SQLTag_Table)
+			if nTag != "" {
+				nTable = nTag
+			}
+		}
+
+		nTag = field.Tag.Get(SQLTag_DB)
+		if nTag != "" { //field
+			nBool = StrIn(field.Name, fields...) || StrIn(nTag, fields...)
+			//struct field or db field
+
+			if (nInclude && nBool) || (!nInclude && !nBool) {
+				nFields = append(nFields, nTag+"="+SQLValue(value.Interface(), nDBType))
+				//field = value
+			}
+
+			return false
+			//带有db的字段,无需深层解析
+		}
+		return true
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if nTable == "" {
+		str := fmt.Sprintf("znlib.SQLUpdate: struct [%s] no [table] tag.", ReflectValue(obj).Type().Name())
+		return "", errors.New(str)
+	}
+
+	sql = fmt.Sprintf("update %s set %s%s", nTable,
+		strings.Join(nFields, ","), StrIF(where == "", "", " where "+where))
 	return sql, nil
 }
 

@@ -216,7 +216,7 @@ func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
 		if field.IsExported() {
 			fieldValue := objValue.Field(nIdx)
 			next = sw(field, fieldValue, curentLevel)
-			if next && field.Anonymous {
+			if next && fieldValue.Kind() == reflect.Struct {
 				WalkStruct(fieldValue.Interface(), sw, curentLevel+1)
 			}
 		}
@@ -278,7 +278,7 @@ func setStructTags(obj interface{}, tags *structTags, deep bool) error {
 		if field.Anonymous {
 			return true
 		}
-		
+
 		tag = field.Tag.Get(tags.key)
 		if tag != "" {
 			tags.tags[field.Name] = tag                //map
