@@ -216,7 +216,7 @@ func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
 		if field.IsExported() {
 			fieldValue := objValue.Field(nIdx)
 			next = sw(field, fieldValue, curentLevel)
-			if next && fieldValue.Kind() == reflect.Struct {
+			if next && field.Anonymous {
 				WalkStruct(fieldValue.Interface(), sw, curentLevel+1)
 			}
 		}
@@ -226,9 +226,10 @@ func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
 }
 
 type structTags struct {
-	typ  reflect.Type      //struct type
-	key  string            //tag(key)名
-	tags map[string]string //k:字段名;v:tag值
+	typ      reflect.Type      //struct type
+	key      string            //tag(key)名
+	tagArray []string          //tag序列
+	tags     map[string]string //k:字段名;v:tag值
 }
 
 var structTagsBuffer = struct {
@@ -238,35 +239,50 @@ var structTagsBuffer = struct {
 	buffer: make([]structTags, 0),
 }
 
-/*StructTags 2022-07-19 12:34:35
-  参数: obj,对象
-  参数: key,Tag名
-  参数: deep,检索全部层级
-  描述: 获取obj包含key的字段名和tag值
+/*getStructTags 2022-07-20 13:42:27
+  参数: objType,对象类型
+  参数: key,tag名
+  参数: lock,是否锁定
+  描述: 从缓存中检索类型为objType,tag名为key的索引
 */
-func StructTags(obj interface{}, key string, deep bool) (map[string]string, error) {
-	var nTags structTags
-	objType := ReflectValue(obj).Type()
-	structTagsBuffer.locker.RLock()
+func getStructTags(objType reflect.Type, key string, lock bool) (idx int) {
+	if lock {
+		structTagsBuffer.locker.RLock()
+		//read lock
+	}
 
-	for _, nTags = range structTagsBuffer.buffer {
-		if nTags.typ == objType && nTags.key == key {
-			return nTags.tags, nil
+	for idx = 0; idx < len(structTagsBuffer.buffer); idx++ {
+		if structTagsBuffer.buffer[idx].typ == objType &&
+			structTagsBuffer.buffer[idx].key == key {
+			return idx
 		}
 	}
-	structTagsBuffer.locker.RUnlock()
 
-	nTags.typ = objType
-	nTags.key = key
-	nTags.tags = make(map[string]string)
+	if lock {
+		structTagsBuffer.locker.RUnlock()
+		//read unlock
+	}
 
+	return -1
+}
+
+/*setStructTags 2022-07-20 14:03:49
+  参数: obj,对象
+  参数: tags,缓存对象
+  参数: deep,是否检索全部层级
+  描述: 将obj中tag匹配的值存入tags缓存中
+*/
+func setStructTags(obj interface{}, tags *structTags, deep bool) error {
 	var tag string
 	err := WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) bool {
-		if value.Kind() != reflect.Struct {
-			tag = field.Tag.Get(key)
-			if tag != "" {
-				nTags.tags[field.Name] = tag
-			}
+		if field.Anonymous {
+			return true
+		}
+		
+		tag = field.Tag.Get(tags.key)
+		if tag != "" {
+			tags.tags[field.Name] = tag                //map
+			tags.tagArray = append(tags.tagArray, tag) //array
 		}
 
 		return deep || level == 1 //检索1层或全部
@@ -274,9 +290,64 @@ func StructTags(obj interface{}, key string, deep bool) (map[string]string, erro
 
 	if err == nil { //存入缓存
 		structTagsBuffer.locker.Lock()
-		structTagsBuffer.buffer = append(structTagsBuffer.buffer, nTags)
+		//write lock
+		if getStructTags(tags.typ, tags.key, false) < 0 {
+			structTagsBuffer.buffer = append(structTagsBuffer.buffer, *tags)
+		}
+
 		structTagsBuffer.locker.Unlock()
+		//write unlock
 	}
 
+	return err
+}
+
+/*StructTags 2022-07-19 12:34:35
+  参数: obj,对象
+  参数: key,Tag名
+  参数: deep,是否检索全部层级
+  描述: 获取obj包含key的字段名和tag值
+*/
+func StructTags(obj interface{}, key string, deep bool) (map[string]string, error) {
+	objType := ReflectValue(obj).Type()
+	idx := getStructTags(objType, key, true)
+	if idx >= 0 {
+		return structTagsBuffer.buffer[idx].tags, nil
+	}
+
+	var nTags = structTags{
+		objType,
+		key,
+		make([]string, 0),
+		make(map[string]string),
+	}
+
+	err := setStructTags(obj, &nTags, deep)
+	//fill data
 	return nTags.tags, err
+}
+
+/*StructTagList 2022-07-20 14:08:20
+  参数: obj,obj,对象
+  参数: key,key,Tag名
+  参数: deep,deep,是否检索全部层级
+  描述: 获取obj包含key的tag值列表,按obj字段的先后顺序排列
+*/
+func StructTagList(obj interface{}, key string, deep bool) ([]string, error) {
+	objType := ReflectValue(obj).Type()
+	idx := getStructTags(objType, key, true)
+	if idx >= 0 {
+		return structTagsBuffer.buffer[idx].tagArray, nil
+	}
+
+	var nTags = structTags{
+		objType,
+		key,
+		make([]string, 0),
+		make(map[string]string),
+	}
+
+	err := setStructTags(obj, &nTags, deep)
+	//fill data
+	return nTags.tagArray, err
 }

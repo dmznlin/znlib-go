@@ -5,6 +5,7 @@
 package znlib
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"net"
 	"os"
@@ -150,7 +151,40 @@ func ErrorPanic(err error, message ...string) {
 	}
 }
 
-//ClearWorkOnExists 程序关闭时的清理工作
+/*TryFinally 2022-07-20 13:03:01
+  参数: try,业务函数
+  参数: finally,强制执行(一定执行)函数
+  参数: except,异常处理函数
+  描述: 模拟delhpi的try...finally机制
+*/
+func TryFinally(try, finally func(), except ...func(err any)) (ok bool) {
+	ok = false
+	func() { //将try装箱
+		defer func() {
+			defer finally()
+			//一定执行
+
+			if err := recover(); err != nil {
+				if except == nil {
+					Error(fmt.Sprintf("%v", err))
+					//write log
+				} else {
+					for _, exc := range except {
+						exc(err)
+					}
+				}
+			}
+		}()
+
+		try()
+		//执行业务
+		ok = true
+	}()
+
+	return
+}
+
+//ClearWorkOnExit 程序关闭时的清理工作
 type ClearWorkOnExit = func() error
 
 /*WaitSystemExit 2022-06-08 15:24:34

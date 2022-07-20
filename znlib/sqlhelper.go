@@ -27,12 +27,12 @@ import (
   描述: 返回obj结构体中tag=db的字段名列表
 */
 func SQLFields(obj interface{}) (fields []string) {
-	tags, err := StructTags(obj, "db", true)
+	tags, err := StructTagList(obj, "db", true)
 	if err != nil {
 		return nil
 	}
 
-	var idx int = 0
+	var idx = 0
 	fields = make([]string, len(tags))
 	for _, tag := range tags {
 		fields[idx] = tag
@@ -70,12 +70,12 @@ func SQLInsert(obj interface{}, fiedls ...string) (sql string, err error) {
 	var (
 		nBool   bool
 		nTag    string
-		nTable  string    = ""
-		nDBType SqlDbType = SQLDB_mssql
+		nTable  = ""
+		nDBType = SQLDB_mssql
 
-		nPrefix  []string = make([]string, 0)
-		nSuffix  []string = make([]string, 0)
-		nInclude bool     = StrIn(SQLTag_Include, fiedls...)
+		nPrefix  = make([]string, 0)
+		nSuffix  = make([]string, 0)
+		nInclude = StrIn(SQLTag_Include, fiedls...)
 	)
 
 	for _, dt := range SQLDB_Types { //find database type
@@ -86,27 +86,29 @@ func SQLInsert(obj interface{}, fiedls ...string) (sql string, err error) {
 	}
 
 	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) bool {
-		if value.Kind() != reflect.Struct {
-			if nTable == "" { //table
-				nTag = field.Tag.Get(SQLTag_Table)
-				if nTag != "" {
-					nTable = nTag
-				}
-			}
+		if field.Anonymous {
+			return true
+		}
 
-			nTag = field.Tag.Get(SQLTag_DB)
-			if nTag != "" { //field
-				nBool = StrIn(nTag, fiedls...)
-				if (nInclude && nBool) || (!nInclude && !nBool) {
-					nPrefix = append(nPrefix, nTag)
-					//field
-
-					nSuffix = append(nSuffix, SQLValue(value.Interface(), nDBType))
-					//value
-				}
+		if nTable == "" { //table
+			nTag = field.Tag.Get(SQLTag_Table)
+			if nTag != "" {
+				nTable = nTag
 			}
 		}
 
+		nTag = field.Tag.Get(SQLTag_DB)
+		if nTag != "" { //field
+			nBool = StrIn(field.Name, fiedls...) || StrIn(nTag, fiedls...)
+			//struct field or db field
+
+			if (nInclude && nBool) || (!nInclude && !nBool) {
+				nPrefix = append(nPrefix, nTag)
+				//field
+				nSuffix = append(nSuffix, SQLValue(value.Interface(), nDBType))
+				//value
+			}
+		}
 		return true
 	})
 
@@ -135,7 +137,7 @@ func SQLValue(value interface{}, db SqlDbType) (val string) {
 		return val
 	}
 
-	var strQuotes string = SqlQuotes_Single
+	var strQuotes = SqlQuotes_Single
 	//字符串引号
 
 	switch value.(type) {

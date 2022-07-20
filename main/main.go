@@ -37,13 +37,14 @@ func main() {
 	Info(StrDel("hello", 3, 6))
 
 	var user = userInfo{
+		PS:   PS{F1: "aa", F2: 10, F3: time.Now()},
 		Id:   10,
 		Name: "dmzn",
 		Age:  5,
 	}
 	Info(SQLFieldsJoin(&user))
 
-	sql, err := SQLInsert(&user, "hello", "asdfds")
+	sql, err := SQLInsert(&user)
 	if err == nil {
 		Info(sql)
 	} else {

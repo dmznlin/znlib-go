@@ -6,6 +6,7 @@ package znlib
 
 import (
 	"bufio"
+	"fmt"
 	iniFile "github.com/go-ini/ini"
 	rotatelogs "github.com/lestrrat/go-file-rotatelogs"
 	"github.com/rifflock/lfshook"
@@ -15,8 +16,10 @@ import (
 	"time"
 )
 
+type logType = int8
+
 const (
-	logInfo int8 = iota
+	logInfo logType = iota
 	logWarn
 	logEror
 )
@@ -118,9 +121,9 @@ type LogFields = logrus.Fields
   参数: fields,附加字段
   描述: 新增一条类型为logType的日志
 */
-func addLog(logType int8, log string, fields ...LogFields) {
+func addLog(logType logType, log interface{}, fields ...LogFields) {
 	if Logger == nil {
-		WriteDefaultLog("msg:" + log)
+		WriteDefaultLog(fmt.Sprintf("msg: %v", log))
 		return
 	}
 
@@ -157,7 +160,7 @@ func addLog(logType int8, log string, fields ...LogFields) {
   参数: fields,附加字段
   描述: 新增一条info信息
 */
-func Info(info string, fields ...LogFields) {
+func Info(info interface{}, fields ...LogFields) {
 	addLog(logInfo, info, fields...)
 }
 
@@ -166,7 +169,7 @@ func Info(info string, fields ...LogFields) {
   参数: fields,附加字段
   描述: 新增一条警告信息
 */
-func Warn(warn string, fields ...logrus.Fields) {
+func Warn(warn interface{}, fields ...logrus.Fields) {
 	addLog(logWarn, warn, fields...)
 }
 
@@ -175,7 +178,7 @@ func Warn(warn string, fields ...logrus.Fields) {
   参数: fields,附加字段
   描述: 新增一条错误信息
 */
-func Error(error string, fields ...logrus.Fields) {
+func Error(error interface{}, fields ...logrus.Fields) {
 	addLog(logEror, error, fields...)
 }
 
