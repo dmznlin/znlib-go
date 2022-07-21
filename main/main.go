@@ -44,7 +44,20 @@ func main() {
 	}
 	Info(SQLFieldsJoin(&user))
 
-	sql, err := SQLInsert(&user)
+	sql, err := SQLUpdate(&user, "id=2",
+		func(field *StructFieldValue) (sqlVal string, done bool) { //构建回调函数
+			if StrIn(field.StructField, "ID") { //排除指定字段
+				field.ExcludeMe = true
+				return "", true
+			}
+
+			if field.TableField == "u_age" { //设置特殊值
+				return "u_age+1", true
+			}
+
+			return "", false
+		})
+
 	if err == nil {
 		Info(sql)
 	} else {

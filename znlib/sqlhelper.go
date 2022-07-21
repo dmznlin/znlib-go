@@ -10,10 +10,19 @@
 		Age  int    `db:"age"`
 	}
   2.构建SQL语句示例:
-    sql, err := SQLInsert(&user, SQLTag_Include, SQLDB_mssql, "ID", "name")
-    *.SQLTag_Include,SQLTag_Exclude: 构建时只包含/需排除 指定的字段
-    *.字段可以是 struct结构体的字段,或 数据库字段名
-    *.SQLDB_mssql: 构建符合mssql规范的字符串
+    sql, err := SQLInsert(&user,
+		func(field *StructFieldValue) (sqlVal string, done bool) {//构建回调函数
+			if StrIn(field.StructField, "ID") {
+				field.ExcludeMe = true //排除指定字段
+				return "", true
+			}
+
+			if field.TableField == "age" {//设置特殊值
+				return "age+1", true
+			}
+
+			return "", false
+		})
 ******************************************************************************/
 package znlib
 
@@ -45,7 +54,7 @@ func SQLFieldsJoin(obj interface{}) string {
   参数: fields,排除的字段 或 包含的字段
   描述: 使用obj构建insert sql语句
 */
-func SQLInsert(obj interface{}, fields ...string) (sql string, err error) {
+func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType) (sql string, err error) {
 	defer DeferHandle(false, "znlib.SQLInsert", func(err any) {
 		if err != nil {
 			err = errors.New(fmt.Sprintf("znlib.SQLInsert: %v", err))
@@ -53,40 +62,53 @@ func SQLInsert(obj interface{}, fields ...string) (sql string, err error) {
 	})
 
 	var (
-		nBool   bool
-		nTag    string
-		nTable  = ""
-		nDBType = SQLDB_Default
+		nPrefix = make([]string, 0)
+		nSuffix = make([]string, 0)
 
-		nPrefix  = make([]string, 0)
-		nSuffix  = make([]string, 0)
-		nInclude = StrIn(SQLTag_Include, fields...)
+		done   bool
+		sqlVal string
+		nValue = StructFieldValue{
+			DbType:    SQLDB_Default,
+			TableName: "",
+		}
 	)
 
-	for _, dt := range SQLDB_Types { //find database type
-		if StrIn(dt, fields...) {
-			nDBType = dt
-			break
-		}
+	if dbType != nil {
+		nValue.DbType = dbType[0]
+		//update db type
 	}
 
 	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) bool {
-		if nTable == "" { //table
-			nTag = field.Tag.Get(SQLTag_Table)
-			if nTag != "" {
-				nTable = nTag
-			}
+		if nValue.TableName == "" {
+			nValue.TableName = field.Tag.Get(SQLTag_Table)
+			//get table name
 		}
 
-		nTag = field.Tag.Get(SQLTag_DB)
-		if nTag != "" { //field
-			nBool = StrIn(field.Name, fields...) || StrIn(nTag, fields...)
-			//struct field or db field
+		nValue.TableField = field.Tag.Get(SQLTag_DB)
+		if nValue.TableField != "" { //field
+			if getVal != nil {
+				nValue.StructField = field.Name
+				nValue.StructValue = value.Interface()
+				nValue.ExcludeMe = false
 
-			if (nInclude && nBool) || (!nInclude && !nBool) {
-				nPrefix = append(nPrefix, nTag)
+				sqlVal, done = getVal(&nValue)
+				if done && nValue.ExcludeMe {
+					return false
+					//该字段已排除,不参与构建sql
+				}
+			} else {
+				done = false
+			}
+
+			if !done { //默认取值
+				sqlVal = SQLValue(value.Interface(), nValue.DbType)
+				done = true
+			}
+
+			if done {
+				nPrefix = append(nPrefix, nValue.TableField)
 				//field
-				nSuffix = append(nSuffix, SQLValue(value.Interface(), nDBType))
+				nSuffix = append(nSuffix, sqlVal)
 				//value
 			}
 
@@ -100,23 +122,24 @@ func SQLInsert(obj interface{}, fields ...string) (sql string, err error) {
 		return "", err
 	}
 
-	if nTable == "" {
+	if nValue.TableName == "" {
 		str := fmt.Sprintf("znlib.SQLInsert: struct [%s] no [table] tag.", ReflectValue(obj).Type().Name())
 		return "", errors.New(str)
 	}
 
-	sql = fmt.Sprintf("insert into %s(%s) values(%s)", nTable,
+	sql = fmt.Sprintf("insert into %s(%s) values(%s)", nValue.TableName,
 		strings.Join(nPrefix, ","), strings.Join(nSuffix, ","))
 	return sql, nil
 }
 
 /*SQLUpdate 2022-07-20 17:24:20
   参数: obj,struct结构体
-  参数: where,更新条件
-  参数: fields,排除的字段 或 包含的字段
+  参数: where,更新条件(可选空"")
+  参数: getVal,获取字段值(可选nil)
+  参数: DbType,数据库类型(默认不填写)
   描述: 使用obj构建update sql语句
 */
-func SQLUpdate(obj interface{}, where string, fields ...string) (sql string, err error) {
+func SQLUpdate(obj interface{}, where string, getVal GetStructFieldValue, dbType ...SqlDbType) (sql string, err error) {
 	defer DeferHandle(false, "znlib.SQLUpdate", func(err any) {
 		if err != nil {
 			err = errors.New(fmt.Sprintf("znlib.SQLUpdate: %v", err))
@@ -124,38 +147,44 @@ func SQLUpdate(obj interface{}, where string, fields ...string) (sql string, err
 	})
 
 	var (
-		nBool   bool
-		nTag    string
-		nTable  = ""
-		nDBType = SQLDB_Default
+		done    bool
+		sqlVal  string
+		nFields = make([]string, 0)
 
-		nFields  = make([]string, 0)
-		nInclude = StrIn(SQLTag_Include, fields...)
+		nValue = StructFieldValue{
+			DbType:    SQLDB_Default,
+			TableName: "",
+		}
 	)
 
-	for _, dt := range SQLDB_Types { //find database type
-		if StrIn(dt, fields...) {
-			nDBType = dt
-			break
-		}
+	if dbType != nil {
+		nValue.DbType = dbType[0]
+		//update db type
 	}
 
 	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) bool {
-		if nTable == "" { //table
-			nTag = field.Tag.Get(SQLTag_Table)
-			if nTag != "" {
-				nTable = nTag
-			}
+		if nValue.TableName == "" {
+			nValue.TableName = field.Tag.Get(SQLTag_Table)
+			//get table name
 		}
 
-		nTag = field.Tag.Get(SQLTag_DB)
-		if nTag != "" { //field
-			nBool = StrIn(field.Name, fields...) || StrIn(nTag, fields...)
-			//struct field or db field
+		nValue.TableField = field.Tag.Get(SQLTag_DB)
+		if nValue.TableField != "" { //field
+			if getVal != nil {
+				nValue.StructField = field.Name
+				nValue.StructValue = value.Interface()
+				nValue.ExcludeMe = false
 
-			if (nInclude && nBool) || (!nInclude && !nBool) {
-				nFields = append(nFields, nTag+"="+SQLValue(value.Interface(), nDBType))
-				//field = value
+				sqlVal, done = getVal(&nValue)
+				if done && !nValue.ExcludeMe { //已处理且不排除
+					nFields = append(nFields, nValue.TableField+"="+sqlVal)
+				}
+			} else {
+				done = false
+			}
+
+			if !done { //默认取值
+				nFields = append(nFields, nValue.TableField+"="+SQLValue(value.Interface(), nValue.DbType))
 			}
 
 			return false
@@ -168,22 +197,39 @@ func SQLUpdate(obj interface{}, where string, fields ...string) (sql string, err
 		return "", err
 	}
 
-	if nTable == "" {
+	if nValue.TableName == "" {
 		str := fmt.Sprintf("znlib.SQLUpdate: struct [%s] no [table] tag.", ReflectValue(obj).Type().Name())
 		return "", errors.New(str)
 	}
 
-	sql = fmt.Sprintf("update %s set %s%s", nTable,
+	sql = fmt.Sprintf("update %s set %s%s", nValue.TableName,
 		strings.Join(nFields, ","), StrIF(where == "", "", " where "+where))
 	return sql, nil
 }
 
+type StructFieldValue struct {
+	DbType     SqlDbType //数据库类型
+	TableName  string    //数据库表名
+	TableField string    //表字段名
+
+	StructField string      //struct字段名
+	StructValue interface{} //struct字段值
+	ExcludeMe   bool        //排除该字段,不参与构建sql
+}
+
+/*GetStructFieldValue 获取field符合sql规范的值
+  参数: field,struct字段数据
+  返回: sqlVal,符合sql规范的值
+  返回: done,是否已成功处理
+*/
+type GetStructFieldValue = func(field *StructFieldValue) (sqlVal string, done bool)
+
 /*SQLValue 2022-07-19 21:09:13
   参数: value,数据
-  参数: db,db类型
+  参数: DbType,db类型
   描述: 转换value为字符串中的值
 */
-func SQLValue(value interface{}, db SqlDbType) (val string) {
+func SQLValue(value interface{}, dbType SqlDbType) (val string) {
 	val = ""
 	if value == nil {
 		return val

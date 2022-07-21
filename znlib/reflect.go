@@ -172,8 +172,13 @@ func ReflectValue(obj interface{}) reflect.Value {
 	}
 }
 
-//StructFieldsWalker 结构体步进函数
-type StructFieldsWalker = func(field reflect.StructField, value reflect.Value, level int) bool
+/*StructFieldsWalker 结构体步进函数
+  参数: field,struct字段
+  参数: value,struct字段数据
+  参数: level,遍历层级,从1开始
+  返回: next,是否进行更深层处理
+*/
+type StructFieldsWalker = func(field reflect.StructField, value reflect.Value, level int) (next bool)
 
 /*WalkStruct 2022-07-19 11:23:14
   参数: obj,对象
@@ -283,6 +288,9 @@ func setStructTags(obj interface{}, tags *structTags, deep bool) error {
 		if tag != "" {
 			tags.tags[field.Name] = tag                //map
 			tags.tagArray = append(tags.tagArray, tag) //array
+
+			return false
+			//有tag值,无需深层解析
 		}
 
 		return deep || level == 1 //检索1层或全部

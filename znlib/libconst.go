@@ -25,22 +25,20 @@ const (
 
 type SqlDbType = string
 
-/*数据库类型定义
-  常量字符串在构建时,尽量与数据库字段名不同
-*/
+//数据库类型定义
 const (
-	SQLDB_mssql      SqlDbType = "$sqldb_type.mssql"
-	SQLDB_mysql      SqlDbType = "$sqldb_type.mysql"
-	SQLDB_db2        SqlDbType = "$sqldb_type.db2"
-	SQLDB_oracle     SqlDbType = "$sqldb_type.oracle"
-	SQLDB_postgreSQL SqlDbType = "$sqldb_type.postgresql"
+	SQLDB_mssql      SqlDbType = "SQL Server"
+	SQLDB_mysql      SqlDbType = "MySQL"
+	SQLDB_db2        SqlDbType = "DB2"
+	SQLDB_oracle     SqlDbType = "Oracle"
+	SQLDB_postgreSQL SqlDbType = "PostgreSQL"
 )
 
 //SQLDB_Default 默认数据库类型
 var SQLDB_Default SqlDbType = SQLDB_mssql
 
 //SQLDB_Types 数据库类型列表
-var SQLDB_Types = [...]string{SQLDB_mssql, SQLDB_mysql, SQLDB_db2, SQLDB_oracle, SQLDB_postgreSQL}
+var SQLDB_Types = [...]SqlDbType{SQLDB_mssql, SQLDB_mysql, SQLDB_db2, SQLDB_oracle, SQLDB_postgreSQL}
 
 type SqlValueQuotes = string
 
