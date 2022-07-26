@@ -12,6 +12,9 @@ import (
 	"github.com/rifflock/lfshook"
 	"github.com/sirupsen/logrus"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -112,16 +115,20 @@ func (cfg *LogConfig) LoadConfig(cFile ...string) {
 //Logger 全局日志对象
 var Logger *logrus.Logger
 
+//LogTraceCaller 跟踪日志调用
+var LogTraceCaller bool = false
+
 //LogFields 日志附加字段
 type LogFields = logrus.Fields
 
-/*addLog 2022-05-30 13:47:50
+/*AddLog 2022-05-30 13:47:50
   参数: logType,日志类型
   参数: log,日志内容
+  参数: trace,是否跟踪调用
   参数: fields,附加字段
   描述: 新增一条类型为logType的日志
 */
-func addLog(logType logType, log interface{}, fields ...LogFields) {
+func AddLog(logType logType, log interface{}, trace bool, fields ...LogFields) {
 	if Logger == nil {
 		WriteDefaultLog(fmt.Sprintf("msg: %v", log))
 		return
@@ -153,6 +160,35 @@ func addLog(logType logType, log interface{}, fields ...LogFields) {
 			Logger.WithFields(all).Error(log)
 		}
 	}
+
+	if trace { //附加调用路径跟踪
+		var (
+			idx int = 2
+			str strings.Builder
+		)
+
+		for true {
+			pc, file, line, ok := runtime.Caller(idx)
+			if !ok {
+				break
+			}
+
+			file = filepath.Base(file)
+			if StrIn(file, "proc.go") {
+				break
+			}
+
+			idx++
+			fn := runtime.FuncForPC(pc)
+			if fn != nil {
+				str.WriteString(fmt.Sprintf(" %s,%d", file, line))
+			}
+		}
+
+		if str.Len() > 0 {
+			AddLog(logInfo, "trace:"+str.String(), false)
+		}
+	}
 }
 
 /*Info 2022-05-30 13:48:29
@@ -161,7 +197,7 @@ func addLog(logType logType, log interface{}, fields ...LogFields) {
   描述: 新增一条info信息
 */
 func Info(info interface{}, fields ...LogFields) {
-	addLog(logInfo, info, fields...)
+	AddLog(logInfo, info, LogTraceCaller, fields...)
 }
 
 /*Warn 2022-05-30 13:48:44
@@ -170,7 +206,7 @@ func Info(info interface{}, fields ...LogFields) {
   描述: 新增一条警告信息
 */
 func Warn(warn interface{}, fields ...logrus.Fields) {
-	addLog(logWarn, warn, fields...)
+	AddLog(logWarn, warn, LogTraceCaller, fields...)
 }
 
 /*Error 2022-05-30 13:48:58
@@ -179,7 +215,7 @@ func Warn(warn interface{}, fields ...logrus.Fields) {
   描述: 新增一条错误信息
 */
 func Error(error interface{}, fields ...logrus.Fields) {
-	addLog(logEror, error, fields...)
+	AddLog(logEror, error, LogTraceCaller, fields...)
 }
 
 /*WriteDefaultLog 2022-06-05 14:46:04

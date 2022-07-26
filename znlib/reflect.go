@@ -293,7 +293,7 @@ func setStructTags(obj interface{}, tags *structTags, deep bool) error {
 			//有tag值,无需深层解析
 		}
 
-		return deep || level == 1 //检索1层或全部
+		return deep //检索1层或全部
 	})
 
 	if err == nil { //存入缓存
