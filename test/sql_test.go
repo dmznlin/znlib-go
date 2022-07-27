@@ -12,8 +12,8 @@ func TestSQLJoin(t *testing.T) {
 		Age  int    `db:"u_age"`
 	}
 
-	str := SQLFieldsJoin(&user)
-	if str != "r_id,u_name,u_age" {
+	str := SQLFields(&user, "u_name")
+	if str != "r_id,u_age" {
 		t.Errorf("znlib.SQLFieldsJoin error")
 	}
 }

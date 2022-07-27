@@ -36,4 +36,6 @@ func init() {
 		//logger.go
 	}
 
+	db_init()
+	//dbhelper.go
 }

@@ -27,18 +27,20 @@ type SqlDbType = string
 
 //数据库类型定义
 const (
-	SQLDB_mssql      SqlDbType = "SQL Server"
+	SQLDB_mssql      SqlDbType = "SQL_Server"
 	SQLDB_mysql      SqlDbType = "MySQL"
 	SQLDB_db2        SqlDbType = "DB2"
 	SQLDB_oracle     SqlDbType = "Oracle"
 	SQLDB_postgreSQL SqlDbType = "PostgreSQL"
+	SQLDB_sqlite     SqlDbType = "SQL_Lite"
 )
 
 //SQLDB_Default 默认数据库类型
 var SQLDB_Default SqlDbType = SQLDB_mssql
 
 //SQLDB_Types 数据库类型列表
-var SQLDB_Types = [...]SqlDbType{SQLDB_mssql, SQLDB_mysql, SQLDB_db2, SQLDB_oracle, SQLDB_postgreSQL}
+var SQLDB_Types = []SqlDbType{SQLDB_mssql, SQLDB_mysql, SQLDB_db2, SQLDB_oracle,
+	SQLDB_postgreSQL, SQLDB_sqlite}
 
 type SqlValueQuotes = string
 
@@ -47,17 +49,17 @@ const (
 	SqlQuotes_Double SqlValueQuotes = "\"" //双引号
 )
 
-type SqlStructTag = string
+type SqlDbFlag = string
 
 //构建SQL的结构体Tag
 const (
-	SQLTag_Table   SqlStructTag = "table"
-	SQLTag_DB      SqlStructTag = "db"
-	SQLTag_Insert  SqlStructTag = "i"
-	SQLTag_Update  SqlStructTag = "u"
-	SQLTag_Delete  SqlStructTag = "d"
-	SQLTag_Include SqlStructTag = "+"
-	SQLTag_Exclude SqlStructTag = "-"
+	SQLTag_Table SqlDbFlag = "table"
+	SQLTag_DB    SqlDbFlag = "db"
+
+	SQLFlag_Insert SqlDbFlag = "i"
+	SQLFlag_Update SqlDbFlag = "u"
+	SQLFlag_Delete SqlDbFlag = "d"
+	SQLFlag_Select SqlDbFlag = "s"
 )
 
 //--------------------------------------------------------------------------------

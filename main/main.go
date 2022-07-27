@@ -42,7 +42,7 @@ func main() {
 		Name: "dmzn",
 		Age:  5,
 	}
-	Info(SQLFieldsJoin(&user))
+	Info(SQLFields(&user))
 
 	sql, err := SQLUpdate(&user, "id=2",
 		func(field *StructFieldValue) (sqlVal string, done bool) { //构建回调函数

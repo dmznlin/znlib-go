@@ -36,13 +36,21 @@ import (
 	"time"
 )
 
-/*SQLFieldsJoin 2022-07-15 16:25:23
+/*SQLFields 2022-07-15 16:25:23
   参数: obj,struct结构体
+  参数: exclude,排除字段
   描述: 拼接字段名
 */
-func SQLFieldsJoin(obj interface{}) string {
+func SQLFields(obj interface{}, exclude ...string) string {
 	fields, err := StructTagList(obj, "db", true)
 	if err == nil {
+		for idx := 0; idx < len(fields); idx++ {
+			if StrIn(fields[idx], exclude...) {
+				fields = append(fields[:idx], fields[idx+1:]...)
+				idx--
+			}
+		}
+
 		return strings.Join(fields, ",")
 	} else {
 		return "*"
