@@ -25,10 +25,13 @@ const (
 	Encrypt3DES_ECB
 	Encrypt3DES_CBC
 	//3DES: 密钥的长度必须为 24 个字符（192 位）
+
+	EncryptBase64_STD
+	EncryptBase64_URl
+	//Base64: StdEncoding,URLEncoding
 )
 
 type Encrypter struct {
-	Data    []byte      //数据
 	Key     []byte      //秘钥
 	Padding string      //填充
 	Method  EncryptFlag //算法
@@ -36,12 +39,11 @@ type Encrypter struct {
 
 /*NewEncrypter 2022-07-27 21:25:31
   参数: method,加密算法
-  参数: data,数据
   参数: key,秘钥
   参数: padding,填充模式(PKCS5_PADDING,PKCS7_PADDING,ZEROS_PADDING)
   描述: 生成编码器
 */
-func NewEncrypter(method EncryptFlag, data, key []byte, padding ...string) *Encrypter {
+func NewEncrypter(method EncryptFlag, key []byte, padding ...string) *Encrypter {
 	var pad string
 	if padding == nil {
 		pad = openssl.PKCS7_PADDING
@@ -53,20 +55,10 @@ func NewEncrypter(method EncryptFlag, data, key []byte, padding ...string) *Encr
 	}
 
 	return &Encrypter{
-		Data:    data,
 		Key:     key,
 		Padding: pad,
 		Method:  method,
 	}
-}
-
-/*NewData 2022-07-27 23:21:36
-  参数: data,数据
-  描述: 深层复制数据
-*/
-func (cyp *Encrypter) NewData(data []byte) {
-	cyp.Data = make([]byte, len(data))
-	copy(cyp.Data, data)
 }
 
 /*NewKey 2022-07-27 23:22:37
@@ -79,11 +71,12 @@ func (cyp *Encrypter) NewKey(key []byte) {
 }
 
 /*Encrypt 2022-07-27 21:25:31
-  参数: 是否base64编码
-  参数: 加密向量
+  参数: data,数据
+  参数: encode,是否base64编码
+  参数: iv,加密向量
   描述: 数据加密
 */
-func (cyp *Encrypter) Encrypt(encode bool, iv ...[]byte) (dst []byte, err error) {
+func (cyp *Encrypter) Encrypt(data []byte, encode bool, iv ...[]byte) (dst []byte, err error) {
 	var iv_data []byte
 	switch cyp.Method {
 	case EncryptAES_CBC, EncryptDES_CBC, Encrypt3DES_CBC:
@@ -95,43 +88,39 @@ func (cyp *Encrypter) Encrypt(encode bool, iv ...[]byte) (dst []byte, err error)
 	}
 	switch cyp.Method {
 	case EncryptAES_ECB:
-		dst, err = openssl.AesECBEncrypt(cyp.Data, cyp.Key, cyp.Padding)
+		dst, err = openssl.AesECBEncrypt(data, cyp.Key, cyp.Padding)
 	case EncryptAES_CBC:
-		dst, err = openssl.AesCBCEncrypt(cyp.Data, cyp.Key, iv_data, cyp.Padding)
+		dst, err = openssl.AesCBCEncrypt(data, cyp.Key, iv_data, cyp.Padding)
 	case EncryptDES_ECB:
-		dst, err = openssl.DesECBEncrypt(cyp.Data, cyp.Key, cyp.Padding)
+		dst, err = openssl.DesECBEncrypt(data, cyp.Key, cyp.Padding)
 	case EncryptDES_CBC:
-		dst, err = openssl.DesCBCEncrypt(cyp.Data, cyp.Key, iv_data, cyp.Padding)
+		dst, err = openssl.DesCBCEncrypt(data, cyp.Key, iv_data, cyp.Padding)
 	case Encrypt3DES_ECB:
-		dst, err = openssl.Des3ECBEncrypt(cyp.Data, cyp.Key, cyp.Padding)
+		dst, err = openssl.Des3ECBEncrypt(data, cyp.Key, cyp.Padding)
 	case Encrypt3DES_CBC:
-		dst, err = openssl.Des3CBCEncrypt(cyp.Data, cyp.Key, iv_data, cyp.Padding)
+		dst, err = openssl.Des3CBCEncrypt(data, cyp.Key, iv_data, cyp.Padding)
 	default:
 		return nil, errors.New("znlib.Encrypt: invalid method.")
 	}
 
 	if err == nil && encode {
-		dst = []byte(base64.StdEncoding.EncodeToString(dst))
+		return NewEncrypter(EncryptBase64_STD, nil).EncodeBase64(dst)
 	}
 	return
 }
 
 /*Decrypt 2022-07-27 21:25:31
+  参数: data,数据
   参数: 是否base64编码
   参数: 加密向量
   描述: 数据解密
 */
-func (cyp *Encrypter) Decrypt(encode bool, iv ...[]byte) (dst []byte, err error) {
+func (cyp *Encrypter) Decrypt(data []byte, encode bool, iv ...[]byte) (dst []byte, err error) {
 	if encode {
-		dst = make([]byte, base64.StdEncoding.DecodedLen(len(cyp.Data)))
-		var num int
-		num, err = base64.StdEncoding.Decode(dst, cyp.Data)
-
+		data, err = NewEncrypter(EncryptBase64_STD, nil).DecodeBase64(data)
 		if err != nil {
 			return nil, err
 		}
-
-		cyp.Data = dst[:num]
 	}
 
 	var iv_data []byte
@@ -145,20 +134,61 @@ func (cyp *Encrypter) Decrypt(encode bool, iv ...[]byte) (dst []byte, err error)
 	}
 	switch cyp.Method {
 	case EncryptAES_ECB:
-		dst, err = openssl.AesECBDecrypt(cyp.Data, cyp.Key, cyp.Padding)
+		dst, err = openssl.AesECBDecrypt(data, cyp.Key, cyp.Padding)
 	case EncryptAES_CBC:
-		dst, err = openssl.AesCBCDecrypt(cyp.Data, cyp.Key, iv_data, cyp.Padding)
+		dst, err = openssl.AesCBCDecrypt(data, cyp.Key, iv_data, cyp.Padding)
 	case EncryptDES_ECB:
-		dst, err = openssl.DesECBDecrypt(cyp.Data, cyp.Key, cyp.Padding)
+		dst, err = openssl.DesECBDecrypt(data, cyp.Key, cyp.Padding)
 	case EncryptDES_CBC:
-		dst, err = openssl.DesCBCDecrypt(cyp.Data, cyp.Key, iv_data, cyp.Padding)
+		dst, err = openssl.DesCBCDecrypt(data, cyp.Key, iv_data, cyp.Padding)
 	case Encrypt3DES_ECB:
-		dst, err = openssl.Des3ECBDecrypt(cyp.Data, cyp.Key, cyp.Padding)
+		dst, err = openssl.Des3ECBDecrypt(data, cyp.Key, cyp.Padding)
 	case Encrypt3DES_CBC:
-		dst, err = openssl.Des3CBCDecrypt(cyp.Data, cyp.Key, iv_data, cyp.Padding)
+		dst, err = openssl.Des3CBCDecrypt(data, cyp.Key, iv_data, cyp.Padding)
 	default:
 		return nil, errors.New("znlib.Decrypt: invalid method.")
 	}
 
 	return
+}
+
+/*EncodeBase64 2022-07-28 11:51:24
+  参数: data,数据
+  描述: base64编码
+*/
+func (cyp *Encrypter) EncodeBase64(data []byte) (dst []byte, err error) {
+	var encoding *base64.Encoding
+	switch cyp.Method {
+	case EncryptBase64_STD:
+		encoding = base64.StdEncoding
+	case EncryptBase64_URl:
+		encoding = base64.URLEncoding
+	default:
+		return nil, errors.New("znlib.EncodeBase64: invalid method.")
+	}
+
+	dst = make([]byte, encoding.EncodedLen(len(data)))
+	encoding.Encode(dst, data)
+	return dst, nil
+}
+
+/*DecodeBase64 2022-07-28 11:51:53
+  参数: data,数据
+  描述: base64解码
+*/
+func (cyp *Encrypter) DecodeBase64(data []byte) (dst []byte, err error) {
+	var encoding *base64.Encoding
+	switch cyp.Method {
+	case EncryptBase64_STD:
+		encoding = base64.StdEncoding
+	case EncryptBase64_URl:
+		encoding = base64.URLEncoding
+	default:
+		return nil, errors.New("znlib.DecodeBase64: invalid method.")
+	}
+
+	var num int
+	dst = make([]byte, encoding.DecodedLen(len(data)))
+	num, err = encoding.Decode(dst, data)
+	return dst[:num], err
 }
