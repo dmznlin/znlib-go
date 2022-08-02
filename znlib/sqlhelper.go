@@ -76,7 +76,7 @@ func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType)
 		done   bool
 		sqlVal string
 		nValue = StructFieldValue{
-			DbType:    SQLDB_Default,
+			DbType:    DBManager.DefaultType,
 			TableName: "",
 		}
 	)
@@ -160,7 +160,7 @@ func SQLUpdate(obj interface{}, where string, getVal GetStructFieldValue, dbType
 		nFields = make([]string, 0)
 
 		nValue = StructFieldValue{
-			DbType:    SQLDB_Default,
+			DbType:    DBManager.DefaultType,
 			TableName: "",
 		}
 	)

@@ -12,6 +12,8 @@ const (
 	LayoutDateTimeMilli = "2006-01-02 15:04:05.000" //日期 + 时间 + 毫秒
 )
 
+//-----------------------------------------------------------------------------
+
 //ValueRelation 数值比较关系
 type ValueRelation = byte
 
@@ -22,6 +24,8 @@ const (
 	ValLess                              // <
 	ValLessEqual                         // <=
 )
+
+//-----------------------------------------------------------------------------
 
 type SqlDbType = string
 
@@ -34,9 +38,6 @@ const (
 	SQLDB_postgreSQL SqlDbType = "PostgreSQL"
 	SQLDB_sqlite     SqlDbType = "SQL_Lite"
 )
-
-//SQLDB_Default 默认数据库类型
-var SQLDB_Default SqlDbType = SQLDB_mssql
 
 //SQLDB_Types 数据库类型列表
 var SQLDB_Types = []SqlDbType{SQLDB_mssql, SQLDB_mysql, SQLDB_db2, SQLDB_oracle,
@@ -62,7 +63,7 @@ const (
 	SQLFlag_Select SqlDbFlag = "s"
 )
 
-//--------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
 // Key define
 type Key = uint16

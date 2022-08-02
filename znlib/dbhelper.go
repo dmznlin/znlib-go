@@ -6,9 +6,8 @@
 [config]
 #加密秘钥
 EncryptKey=
-#数据库类型
-MySQL=mysql_local
-SQL_Server=mssql_local
+#默认数据库
+DefaultDB=mssql_main
 
 #变量列表
 #$user: 用户
@@ -16,9 +15,14 @@ SQL_Server=mssql_local
 #$host:主机
 #$path: 路径
 
-[mysql_local]
+#数据库类型
+#MySQL,SQL_Server,PostgreSQL,SQL_Lite
+
+[mysql_main]
 #驱动名称
 driver=mysql
+#数据库类型
+dbtype=MySQL
 #登录用户
 user=root
 #用户密码(DES)
@@ -28,9 +32,11 @@ host=127.0.0.1
 #连接配置(base64)
 dsn=JHVzZXI6JHB3ZEB0Y3AoJGhvc3Q6MzMwNikvdGVzdA==
 
-[mssql_local]
+[mssql_main]
 #驱动名称
 driver=adodb
+#数据库类型
+dbtype=SQL_Server
 #登录用户
 user=sa
 #用户密码(DES)
@@ -77,80 +83,82 @@ type DbTrans struct {
 	nested           bool
 }
 
-//DBManager 数据库管理器
-var DBManager = dbUtils{
-	encryptKey: DBEncryptKey,
-	DBList:     make(map[string]*DBConfig),
+//DbUtils 数据库操作集合
+type DbUtils struct {
+	sync        sync.RWMutex         //数据库同步锁定
+	EncryptKey  string               //加密秘钥
+	DefaultName string               //默认数据库名称
+	DefaultType SqlDbType            //默认数据库类型
+	DBList      map[string]*DBConfig //多数据库配置,k:数据库名称
 }
 
-type dbUtils struct {
-	encryptKey string               //加密秘钥
-	sync       sync.RWMutex         //数据库同步锁定
-	DBList     map[string]*DBConfig //多数据库配置,k:数据库名称
+//DBManager 全局数据库管理器
+var DBManager = DbUtils{
+	EncryptKey:  DBEncryptKey,
+	DefaultName: "",
+	DefaultType: SQLDB_mssql,
+	DBList:      make(map[string]*DBConfig),
 }
 
 /*db_init 2022-07-26 16:33:53
   描述: 初始化数据库配置
 */
 func db_init() {
-	ini, err := iniFile.Load(Application.ConfigDB)
+	DBManager.LoadConfig()
+}
+
+/*LoadConfig 2022-08-02 21:48:53
+  参数: file,配置文件
+  描述: 读取数据库配置
+*/
+func (dm *DbUtils) LoadConfig(file ...string) (err error) {
+	var ini *iniFile.File
+	if file == nil {
+		ini, err = iniFile.Load(Application.ConfigDB)
+	} else {
+		ini, err = iniFile.Load(file[0])
+	}
+
 	if err != nil {
 		Error(err)
 		return
 	}
 
 	var (
-		str    string
-		strs   []string
-		buf    []byte
-		sec    *iniFile.Section
-		key    *iniFile.Key
-		dbtype = make(map[string]SqlDbType)
+		str string
+		buf []byte
+		sec *iniFile.Section
+		key *iniFile.Key
 	)
 
 	sec, err = ini.GetSection("config")
-	if err != nil {
-		Error("db-config file has no [config] section.")
-		return
-	}
-
-	for _, key = range sec.Keys() {
-		if strings.EqualFold(key.Name(), "EncryptKey") { //秘钥
-			str = StrTrim(key.String())
-			if str != "" {
-				buf, err = NewEncrypter(EncryptDES_ECB, []byte(DBEncryptKey)).Decrypt([]byte(str), true)
-				if err != nil {
-					Error(fmt.Sprintf(`db_init:"%s.EncryptKey" wrong: %s.`, sec.Name(), err))
-					continue
+	if err == nil {
+		str = StrTrim(sec.Key("EncryptKey").String()) //秘钥
+		if str != "" {
+			buf, err = NewEncrypter(EncryptDES_ECB, []byte(DBEncryptKey)).Decrypt([]byte(str), true)
+			if err == nil {
+				if len(buf) == 8 {
+					dm.EncryptKey = string(buf) //new key
+				} else {
+					Error(fmt.Sprintf(`DbUtils:"%s.EncryptKey" length!=8.`, sec.Name()))
 				}
-
-				str = string(buf)
-				if len(str) != 8 {
-					Error(fmt.Sprintf(`db_init:"%s.EncryptKey" length!=8.`, sec.Name()))
-					continue
-				}
-				DBManager.encryptKey = str //new key
-			}
-			continue
-		}
-
-		if !StrIn(key.Name(), SQLDB_Types...) { //invalid dbtype
-			continue
-		}
-
-		str = StrTrim(key.String())
-		if str == "" { //no db
-			continue
-		}
-
-		strs = strings.Split(str, ",")
-		for _, str = range strs {
-			str = StrTrim(str)
-			if str != "" {
-				dbtype[str] = key.Name()
+			} else {
+				Error(fmt.Sprintf(`DbUtils:"%s.EncryptKey" wrong: %s.`, sec.Name(), err))
 			}
 		}
+
+		str = StrTrim(sec.Key("DefaultDB").String()) //默认数据库
+		if str != "" {
+			dm.DefaultName = str
+		}
+	} else {
+		Error("DbUtils:db-config file has no [config] section.")
 	}
+
+	if dm.EncryptKey == "" { //default key
+		dm.EncryptKey = DBEncryptKey
+	}
+	//-------------------------------------------------------------------------
 
 	for _, sec = range ini.Sections() {
 		key, err = sec.GetKey("dsn")
@@ -158,15 +166,15 @@ func db_init() {
 			continue
 		}
 
-		typ, ok := dbtype[sec.Name()]
-		if !ok { //no match db-type
-			Error(fmt.Sprintf(`db_init:"%s" invalid db-type.`, sec.Name()))
+		str = sec.Key("dbtype").String()
+		if !StrIn(str, SQLDB_Types...) { //no match db-type
+			Error(fmt.Sprintf(`DbUtils:"%s" invalid db-type.`, sec.Name()))
 			continue
 		}
 
 		db := &DBConfig{
 			Name:   sec.Name(),
-			Type:   typ,
+			Type:   str,
 			DSN:    key.String(),
 			Drive:  sec.Key("driver").String(),
 			User:   sec.Key("user").String(),
@@ -176,14 +184,14 @@ func db_init() {
 
 		buf, err = NewEncrypter(EncryptBase64_STD, nil).DecodeBase64([]byte(db.DSN))
 		if err != nil {
-			Error(fmt.Sprintf(`db_init:"%s.dsn" invalid base64 coding.`, sec.Name()))
+			Error(fmt.Sprintf(`DbUtils:"%s.dsn" invalid base64 coding.`, sec.Name()))
 			continue
 		}
 		db.DSN = string(buf)
 
-		buf, err = NewEncrypter(EncryptDES_ECB, []byte(DBManager.encryptKey)).Decrypt([]byte(db.Passwd), true)
+		buf, err = NewEncrypter(EncryptDES_ECB, []byte(dm.EncryptKey)).Decrypt([]byte(db.Passwd), true)
 		if err != nil {
-			Error(fmt.Sprintf(`db_init:"%s.passwd" wrong: %s.`, sec.Name(), err))
+			Error(fmt.Sprintf(`DbUtils:"%s.passwd" wrong: %s.`, sec.Name(), err))
 			continue
 		}
 		db.Passwd = string(buf)
@@ -192,7 +200,24 @@ func db_init() {
 		db.DSN = StrReplace(db.DSN, db.Passwd, "$pwd")
 		db.DSN = StrReplace(db.DSN, db.Host, "$host")
 		db.DSN = StrReplace(db.DSN, Application.ExePath, "$path\\", "$path/", "$path")
-		DBManager.DBList[db.Name] = db
+
+		if dm.DBList == nil {
+			dm.DBList = make(map[string]*DBConfig)
+		}
+		dm.DBList[db.Name] = db
+
+		if dm.DefaultName == "" { //first is default
+			dm.DefaultName = db.Name
+			dm.DefaultType = db.Type
+		} else if strings.EqualFold(db.Name, dm.DefaultName) { //match default type
+			dm.DefaultType = db.Type
+		}
+	}
+
+	if len(dm.DBList) > 0 {
+		return nil
+	} else {
+		return errors.New("DbUtils:db-list is empty.")
 	}
 }
 
@@ -200,7 +225,7 @@ func db_init() {
   参数: dbname,数据库名称
   描述: 获取指定数据库连接对象
 */
-func (dm dbUtils) GetDB(dbname string) (db *sqlx.DB, err error) {
+func (dm DbUtils) GetDB(dbname string) (db *sqlx.DB, err error) {
 	cfg, ok := dm.DBList[dbname]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf(`znlib.GetDB: "%s" not invalid.`, dbname))
