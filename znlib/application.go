@@ -159,29 +159,26 @@ func ErrorPanic(err error, message ...string) {
 */
 func TryFinally(try, finally func(), except ...func(err any)) (ok bool) {
 	ok = false
-	func() { //将try装箱
-		defer func() {
-			defer finally()
-			//一定执行
+	//init first
+	defer finally()
+	//run last
 
-			if err := recover(); err != nil {
-				if except == nil {
-					Error(fmt.Sprintf("%v", err))
-					//write log
-				} else {
-					for _, exc := range except {
-						exc(err)
-					}
+	defer func() {
+		if err := recover(); err != nil {
+			if except == nil {
+				Error(fmt.Sprintf("%v", err))
+				//write log
+			} else {
+				for _, exc := range except {
+					exc(err)
 				}
 			}
-		}()
+		}
+	}() //run after panic
 
-		try()
-		//执行业务
-		ok = true
-	}()
-
-	return
+	try()
+	//执行业务
+	return true
 }
 
 //ClearWorkOnExit 程序关闭时的清理工作

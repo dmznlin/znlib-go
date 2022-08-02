@@ -4,6 +4,8 @@
 
 ------------------------ db.ini示例 ------------------------
 [config]
+#加密秘钥
+EncryptKey=
 #数据库类型
 MySQL=mysql_local
 SQL_Server=mssql_local
@@ -66,8 +68,26 @@ type DBConfig struct {
 	DB     *sqlx.DB  //数据库对象
 }
 
-//DBList 多数据库配置,k:数据库名称
-var DBList = make(map[string]*DBConfig)
+//DbTrans 数据库事务
+type DbTrans struct {
+	Db               *sqlx.DB
+	Tx               *sqlx.Tx
+	savePointID      string
+	savePointEnabled bool
+	nested           bool
+}
+
+//DBManager 数据库管理器
+var DBManager = dbUtils{
+	encryptKey: DBEncryptKey,
+	DBList:     make(map[string]*DBConfig),
+}
+
+type dbUtils struct {
+	encryptKey string               //加密秘钥
+	sync       sync.RWMutex         //数据库同步锁定
+	DBList     map[string]*DBConfig //多数据库配置,k:数据库名称
+}
 
 /*db_init 2022-07-26 16:33:53
   描述: 初始化数据库配置
@@ -95,6 +115,25 @@ func db_init() {
 	}
 
 	for _, key = range sec.Keys() {
+		if strings.EqualFold(key.Name(), "EncryptKey") { //秘钥
+			str = StrTrim(key.String())
+			if str != "" {
+				buf, err = NewEncrypter(EncryptDES_ECB, []byte(DBEncryptKey)).Decrypt([]byte(str), true)
+				if err != nil {
+					Error(fmt.Sprintf(`db_init:"%s.EncryptKey" wrong: %s.`, sec.Name(), err))
+					continue
+				}
+
+				str = string(buf)
+				if len(str) != 8 {
+					Error(fmt.Sprintf(`db_init:"%s.EncryptKey" length!=8.`, sec.Name()))
+					continue
+				}
+				DBManager.encryptKey = str //new key
+			}
+			continue
+		}
+
 		if !StrIn(key.Name(), SQLDB_Types...) { //invalid dbtype
 			continue
 		}
@@ -142,9 +181,9 @@ func db_init() {
 		}
 		db.DSN = string(buf)
 
-		buf, err = NewEncrypter(EncryptDES_ECB, []byte(DBEncryptKey)).Decrypt([]byte(db.Passwd), true)
+		buf, err = NewEncrypter(EncryptDES_ECB, []byte(DBManager.encryptKey)).Decrypt([]byte(db.Passwd), true)
 		if err != nil {
-			Error(fmt.Sprintf(`db_init:"%s.passwd" wrong: %s.`, sec.Name(), err.Error()))
+			Error(fmt.Sprintf(`db_init:"%s.passwd" wrong: %s.`, sec.Name(), err))
 			continue
 		}
 		db.Passwd = string(buf)
@@ -153,28 +192,30 @@ func db_init() {
 		db.DSN = StrReplace(db.DSN, db.Passwd, "$pwd")
 		db.DSN = StrReplace(db.DSN, db.Host, "$host")
 		db.DSN = StrReplace(db.DSN, Application.ExePath, "$path\\", "$path/", "$path")
-		DBList[db.Name] = db
+		DBManager.DBList[db.Name] = db
 	}
 }
-
-//dbsync 数据库同步锁定
-var dbsync sync.Mutex
-
-type DBManager struct{}
 
 /*GetDB 2022-07-28 18:18:44
   参数: dbname,数据库名称
   描述: 获取指定数据库连接对象
 */
-func (dm DBManager) GetDB(dbname string) (db *sqlx.DB, err error) {
-	cfg, ok := DBList[dbname]
+func (dm dbUtils) GetDB(dbname string) (db *sqlx.DB, err error) {
+	cfg, ok := dm.DBList[dbname]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf(`znlib.GetDB: "%s" not invalid.`, dbname))
 	}
 
-	dbsync.Lock()
-	defer dbsync.Unlock()
+	dm.sync.RLock()
+	if cfg.DB != nil {
+		dm.sync.RUnlock()
+		return cfg.DB, nil
+	}
+	dm.sync.RUnlock()
+	//for write
 
+	dm.sync.Lock()
+	defer dm.sync.Unlock()
 	if cfg.DB != nil {
 		return cfg.DB, nil
 	}
@@ -184,12 +225,4 @@ func (dm DBManager) GetDB(dbname string) (db *sqlx.DB, err error) {
 		cfg.DB = db
 	}
 	return
-}
-
-type DBTrans struct {
-	db               *sqlx.DB
-	tx               *sqlx.Tx
-	savePointID      string
-	savePointEnabled bool
-	nested           bool
 }

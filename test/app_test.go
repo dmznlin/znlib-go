@@ -14,7 +14,7 @@ func Test_FixPath(t *testing.T) {
 
 func TestTryFinally(t *testing.T) {
 	ok := TryFinally(func() {
-		panic("raise exception")
+		panic("raise 1")
 	},
 		func() {
 			t.Log("i am finally")
@@ -22,6 +22,7 @@ func TestTryFinally(t *testing.T) {
 
 		func(err any) {
 			t.Log("again")
+			//panic("raise 2")
 		},
 	)
 
