@@ -13,20 +13,13 @@ func Test_FixPath(t *testing.T) {
 }
 
 func TestTryFinally(t *testing.T) {
-	ok := TryFinally(func() {
+	ok := TryFinal{Try: func() {
 		panic("raise 1")
-	},
-		func() {
-			t.Log("i am finally")
-		},
-
-		func(err any) {
-			t.Log("again")
-			//panic("raise 2")
-		},
-	)
+	}, Finally: func() {
+		t.Log("i am finally")
+	}}.Run()
 
 	if ok {
-		t.Errorf("znlib.TryFinally wrong")
+		t.Errorf("znlib.TryFinal wrong")
 	}
 }

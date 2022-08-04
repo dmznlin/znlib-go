@@ -15,14 +15,14 @@ DefaultDB=mssql_main
 #$host:主机
 #$path: 路径
 
-#数据库类型
-#MySQL,SQL_Server,PostgreSQL,SQL_Lite
-
 [mysql_main]
 #驱动名称
 driver=mysql
 #数据库类型
 dbtype=MySQL
+#连接池配置
+MaxOpen=5
+MaxIdle=2
 #登录用户
 user=root
 #用户密码(DES)
@@ -37,6 +37,9 @@ dsn=JHVzZXI6JHB3ZEB0Y3AoJGhvc3Q6MzMwNikvdGVzdA==
 driver=adodb
 #数据库类型
 dbtype=SQL_Server
+#连接池配置
+MaxOpen=5
+MaxIdle=2
 #登录用户
 user=sa
 #用户密码(DES)
@@ -71,7 +74,10 @@ type DBConfig struct {
 	Passwd string    //登录密码
 	Host   string    //主机地址
 	DSN    string    //连接配置项
-	DB     *sqlx.DB  //数据库对象
+
+	MaxOpen int      //同时打开的连接数(使用中+空闲)
+	MaxIdle int      //最大并发空闲链接数
+	DB      *sqlx.DB //数据库对象
 }
 
 //DbTrans 数据库事务
@@ -158,6 +164,10 @@ func (dm *DbUtils) LoadConfig(file ...string) (err error) {
 	if dm.EncryptKey == "" { //default key
 		dm.EncryptKey = DBEncryptKey
 	}
+
+	if dm.DBList == nil { //empty list
+		dm.DBList = make(map[string]*DBConfig)
+	}
 	//-------------------------------------------------------------------------
 
 	for _, sec = range ini.Sections() {
@@ -180,6 +190,9 @@ func (dm *DbUtils) LoadConfig(file ...string) (err error) {
 			User:   sec.Key("user").String(),
 			Passwd: sec.Key("passwd").String(),
 			Host:   sec.Key("host").String(),
+
+			MaxIdle: sec.Key("MaxIdle").MustInt(2),
+			MaxOpen: sec.Key("MaxOpen").MustInt(5),
 		}
 
 		buf, err = NewEncrypter(EncryptBase64_STD, nil).DecodeBase64([]byte(db.DSN))
@@ -194,16 +207,9 @@ func (dm *DbUtils) LoadConfig(file ...string) (err error) {
 			Error(fmt.Sprintf(`DbUtils:"%s.passwd" wrong: %s.`, sec.Name(), err))
 			continue
 		}
+
 		db.Passwd = string(buf)
-
-		db.DSN = StrReplace(db.DSN, db.User, "$user")
-		db.DSN = StrReplace(db.DSN, db.Passwd, "$pwd")
-		db.DSN = StrReplace(db.DSN, db.Host, "$host")
-		db.DSN = StrReplace(db.DSN, Application.ExePath, "$path\\", "$path/", "$path")
-
-		if dm.DBList == nil {
-			dm.DBList = make(map[string]*DBConfig)
-		}
+		db.ApplyDSN() //update value
 		dm.DBList[db.Name] = db
 
 		if dm.DefaultName == "" { //first is default
@@ -248,6 +254,49 @@ func (dm DbUtils) GetDB(dbname string) (db *sqlx.DB, err error) {
 	db, err = sqlx.Open(cfg.Drive, cfg.DSN)
 	if err == nil {
 		cfg.DB = db
+		db.SetMaxIdleConns(cfg.MaxIdle)
+		db.SetMaxOpenConns(cfg.MaxOpen)
 	}
 	return
+}
+
+/*ApplyDSN 2022-08-03 12:57:02
+  描述: 更新dsn中的变量值
+*/
+func (dc *DBConfig) ApplyDSN() {
+	dc.DSN = StrReplace(dc.DSN, dc.User, "$user")
+	dc.DSN = StrReplace(dc.DSN, dc.Passwd, "$pwd")
+	dc.DSN = StrReplace(dc.DSN, dc.Host, "$host")
+	dc.DSN = StrReplace(dc.DSN, Application.ExePath, "$path\\", "$path/", "$path")
+}
+
+/*UpdateDSN 2022-08-03 13:17:26
+  参数: dbname,数据库名称
+  参数: dsn,新的连接配置
+  描述:
+*/
+func (dm DbUtils) UpdateDSN(dbname, dsn string) (e error) {
+	cfg, ok := dm.DBList[dbname]
+	if !ok {
+		return errors.New(fmt.Sprintf(`znlib.ApplyDSN: "%s" not invalid.`, dbname))
+	}
+
+	dm.sync.Lock()
+	defer DeferHandle(false, "znlib.ApplyDSN", func(err any) {
+		dm.sync.Unlock()
+		if err != nil {
+			e = errors.New(fmt.Sprintf("%s", err))
+		}
+	})
+
+	cfg.DSN = dsn
+	cfg.ApplyDSN() //update dsn
+
+	if cfg.DB != nil { //try to close
+		db := cfg.DB
+		cfg.DB = nil
+		db.Close()
+	}
+
+	return nil
 }

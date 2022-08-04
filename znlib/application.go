@@ -5,7 +5,6 @@
 package znlib
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"net"
 	"os"
@@ -151,32 +150,36 @@ func ErrorPanic(err error, message ...string) {
 	}
 }
 
-/*TryFinally 2022-07-20 13:03:01
-  参数: try,业务函数
-  参数: finally,强制执行(一定执行)函数
-  参数: except,异常处理函数
-  描述: 模拟delhpi的try...finally机制
+//TryFinal 模拟delhpi的try...finally机制
+type TryFinal struct {
+	Try     func()        //业务函数
+	Finally func()        //强制执行(一定执行)函数
+	Except  func(err any) //异常处理函数
+}
+
+/*Run 2022-07-20 13:03:01
+  描述: 执行业务
 */
-func TryFinally(try, finally func(), except ...func(err any)) (ok bool) {
+func (tf TryFinal) Run() (ok bool) {
 	ok = false
 	//init first
-	defer finally()
-	//run last
+	if tf.Finally != nil {
+		defer tf.Finally()
+		//run last
+	}
 
 	defer func() {
 		if err := recover(); err != nil {
-			if except == nil {
-				Error(fmt.Sprintf("%v", err))
+			if tf.Except == nil {
+				AddLog(logEror, err, true)
 				//write log
 			} else {
-				for _, exc := range except {
-					exc(err)
-				}
+				tf.Except(err)
 			}
 		}
 	}() //run after panic
 
-	try()
+	tf.Try()
 	//执行业务
 	return true
 }

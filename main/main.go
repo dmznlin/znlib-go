@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	. "github.com/dmznlin/znlib-go/znlib"
-	_ "github.com/mattn/go-adodb"
 	"github.com/shopspring/decimal"
 	"strconv"
 	"time"
@@ -69,24 +68,6 @@ func main() {
 	v, ok := IsNumber("2.12345")
 	if ok {
 		Info(v.Div(decimal.NewFromInt32(3)).String())
-	}
-
-	conn, err := DBManager.GetDB("mssql_local")
-	if err == nil {
-		var users = struct {
-			Name string `db:"U_Name"`
-			ID   string `db:"U_Account"`
-			Mail string `db:"U_Mail"`
-		}{}
-
-		err = conn.Get(&users, fmt.Sprintf("select %s from Sys_Users", SQLFields(&users)))
-		if err == nil {
-			Info(fmt.Sprintf("User:%s ID:%s Mail:%s", users.Name, users.ID, users.Mail))
-		} else {
-			Error(err)
-		}
-	} else {
-		Error(err)
 	}
 
 	/*
