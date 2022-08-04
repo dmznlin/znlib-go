@@ -5,6 +5,7 @@
 package znlib
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"net"
 	"os"
@@ -152,36 +153,43 @@ func ErrorPanic(err error, message ...string) {
 
 //TryFinal 模拟delhpi的try...finally机制
 type TryFinal struct {
-	Try     func()        //业务函数
-	Finally func()        //强制执行(一定执行)函数
-	Except  func(err any) //异常处理函数
+	Try     func() (err error) //业务函数
+	Finally func()             //强制执行(一定执行)函数
+	Except  func(err error)    //异常处理函数
 }
 
 /*Run 2022-07-20 13:03:01
-  描述: 执行业务
+  返回: error,异常
+  描述: 执行业务,返回false时应该退出业务.
 */
-func (tf TryFinal) Run() (ok bool) {
-	ok = false
-	//init first
-	if tf.Finally != nil {
+func (tf TryFinal) Run() (err error) {
+	if tf.Finally != nil { //run last
 		defer tf.Finally()
-		//run last
 	}
 
 	defer func() {
-		if err := recover(); err != nil {
+		if errAny := recover(); errAny != nil { //run after panic
+			e, ok := errAny.(error)
+			if ok {
+				err = e
+			} else {
+				err = errors.New(fmt.Sprintf("%s", errAny))
+			}
+		}
+
+		if err != nil {
 			if tf.Except == nil {
 				AddLog(logEror, err, true)
 				//write log
 			} else {
 				tf.Except(err)
+				//do except
 			}
 		}
-	}() //run after panic
+	}()
 
-	tf.Try()
-	//执行业务
-	return true
+	err = tf.Try() //执行业务
+	return
 }
 
 //ClearWorkOnExit 程序关闭时的清理工作
