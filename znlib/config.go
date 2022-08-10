@@ -55,7 +55,7 @@ func init() {
 	}
 
 	if cfg.snowflake {
-		SnowflakeWorker = NewSnowflake(cfg.workerID, cfg.datacenterID)
+		SnowflakeID = NewSnowflake(cfg.workerID, cfg.datacenterID)
 		//idgen.go
 	}
 

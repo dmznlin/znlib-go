@@ -11,7 +11,9 @@ package znlib
 import (
 	"encoding/binary"
 	"errors"
+	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -39,8 +41,8 @@ type snowflakeWorker struct {
 	Sequence     int64 // 当前毫秒已经生成的ID序列号(从0 开始累加) 1毫秒内最多生成4096个ID
 }
 
-//SnowflakeWorker 全局雪花算法对象
-var SnowflakeWorker *snowflakeWorker = nil
+//SnowflakeID 全局雪花算法对象
+var SnowflakeID *snowflakeWorker = nil
 
 /*NewSnowflake 2022-08-10 11:42:26
   参数: workerID,节点标识
@@ -94,10 +96,54 @@ func (w *snowflakeWorker) NextID() (uint64, error) {
 */
 func (w *snowflakeWorker) NextStr(encode ...bool) (string, error) {
 	id, err := w.NextID()
-	if err != nil {
+	if err == nil {
+		return SerialID.ToString(id, encode...)
+	} else {
 		return "", err
 	}
+}
 
+//--------------------------------------------------------------------------------
+
+type serialIDWorker struct {
+	mu   sync.Mutex //同步锁定
+	base uint64     //编号基数
+}
+
+//SerialID 全局串行编号对象
+var SerialID *serialIDWorker = &serialIDWorker{
+	base: 0,
+}
+
+/*NextID 2022-08-10 15:03:59
+  描述: 本地顺序编号,从1开始
+*/
+func (w *serialIDWorker) NextID() uint64 {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.base < math.MaxUint64 {
+		w.base++
+	} else {
+		w.base = 1
+	}
+	return w.base
+}
+
+/*NextStr 2022-08-10 12:37:35
+  参数: encode,是否编码
+  描述: 生成字符串序列号
+*/
+func (w *serialIDWorker) NextStr(encode ...bool) (string, error) {
+	return w.ToString(w.NextID(), encode...)
+}
+
+/*ToString 2022-08-10 15:11:28
+  参数: id,编号值
+  参数: encode,是否编码
+  描述: 将id转为字符串id
+*/
+func (w *serialIDWorker) ToString(id uint64, encode ...bool) (sid string, err error) {
 	if encode != nil && encode[0] == true {
 		buf := make([]byte, 8)
 		binary.BigEndian.PutUint64(buf, id)
@@ -107,4 +153,25 @@ func (w *snowflakeWorker) NextStr(encode ...bool) (string, error) {
 	} else {
 		return strconv.FormatUint(id, 10), nil
 	}
+}
+
+/*TimeID 2022-08-10 17:06:42
+  参数: year,包含年月日
+  描述: 使用时分秒+毫秒作为编号
+*/
+func (w *serialIDWorker) TimeID(year ...bool) string {
+	var lay string
+	if year != nil && year[0] == true {
+		lay = "20060102150405.000"
+	} else {
+		lay = "150405.000"
+	}
+
+	id := time.Now().Format(lay)
+	time.Sleep(1 * time.Millisecond)
+	//避免毫秒重复
+
+	pos := strings.Index(id, ".")
+	buf := []byte(id)
+	return string(append(buf[:pos], buf[pos+1:]...))
 }
