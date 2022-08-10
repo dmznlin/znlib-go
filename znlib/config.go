@@ -18,9 +18,19 @@ func init() {
 	//application.go
 
 	cfg := struct {
-		logger bool
+		logger    bool
+		dbmanager bool
+		snowflake bool
+
+		workerID     int64
+		datacenterID int64
 	}{
-		logger: true,
+		logger:    true,
+		dbmanager: false,
+		snowflake: true,
+
+		workerID:     1,
+		datacenterID: 0,
 	}
 
 	if FileExists(Application.ConfigFile, false) {
@@ -28,6 +38,14 @@ func init() {
 		if err == nil {
 			sec := ini.Section("logger")
 			cfg.logger = sec.Key("enable").In("true", []string{"true", "false"}) == "true"
+
+			sec = ini.Section("dbmanager")
+			cfg.dbmanager = sec.Key("enable").In("true", []string{"true", "false"}) == "true"
+
+			sec = ini.Section("snowflake")
+			cfg.snowflake = sec.Key("enable").In("true", []string{"true", "false"}) == "true"
+			cfg.workerID = sec.Key("workerID").MustInt64(1)
+			cfg.datacenterID = sec.Key("dataCenterID").MustInt64(0)
 		}
 	}
 
@@ -36,6 +54,13 @@ func init() {
 		//logger.go
 	}
 
-	db_init()
-	//dbhelper.go
+	if cfg.snowflake {
+		SnowflakeWorker = NewSnowflake(cfg.workerID, cfg.datacenterID)
+		//idgen.go
+	}
+
+	if cfg.dbmanager {
+		db_init()
+		//dbhelper.go
+	}
 }

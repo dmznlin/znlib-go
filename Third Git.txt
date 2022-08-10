@@ -9,3 +9,9 @@ https://github.com/sirupsen/logrus.git
 
 *.decimal: Arbitrary-precision fixed-point decimal numbers in go
 https://github.com/shopspring/decimal.git
+
+*.gobwas: WebSocket implementation in Go
+https://github.com/gobwas/ws.git
+
+*.etree: expresses XML in the form of an element tree
+https://github.com/beevik/etree.git

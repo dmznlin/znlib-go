@@ -361,7 +361,8 @@ func Str2DateTime(dt string, fmt ...string) (ret time.Time) {
 		lay = fmt[0]
 	}
 
-	ret, err := time.ParseInLocation(lay, dt, time.Local)
+	var err error
+	ret, err = time.ParseInLocation(lay, dt, time.Local)
 	if err != nil {
 		panic(err)
 	}

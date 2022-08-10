@@ -56,3 +56,31 @@ func TestGetDB(t *testing.T) {
 
 	rg.Wait()
 }
+
+type typeA struct{}
+
+type typeB struct {
+	typeA //匿名嵌套
+}
+
+func (a typeA) Msg() {
+	Info("ta.msg")
+}
+
+func TestTrans(t *testing.T) {
+	DBManager.LoadConfig("D:\\Program Files\\MyVCL\\go\\znlib-go\\main\\bin\\db.ini")
+	rg := threading.NewRoutineGroup()
+	rg.Run(func() {
+		conn, err := DBManager.GetDB("mssql_main")
+		if err != nil {
+			t.Error(err)
+		}
+
+		_, err = conn.Begin()
+		if err != nil {
+			t.Error(err)
+		}
+	})
+
+	rg.Wait()
+}
