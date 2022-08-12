@@ -44,6 +44,22 @@ type snowflakeWorker struct {
 //SnowflakeID 全局雪花算法对象
 var SnowflakeID *snowflakeWorker = nil
 
+//snowflakeConfig 配置参数
+var snowflakeConfig = struct {
+	workerID     int64
+	datacenterID int64
+}{
+	workerID:     1,
+	datacenterID: 0,
+}
+
+/*init_snowflake 2022-08-11 19:03:40
+  描述: 初始化对象
+*/
+func init_snowflake() {
+	SnowflakeID = NewSnowflake(snowflakeConfig.workerID, snowflakeConfig.datacenterID)
+}
+
 /*NewSnowflake 2022-08-10 11:42:26
   参数: workerID,节点标识
   参数: dataCenterID,数据中心标识

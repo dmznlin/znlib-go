@@ -62,9 +62,6 @@ import (
 	"sync"
 )
 
-//DBEncryptKey 数据库加密秘钥
-const DBEncryptKey = "libdbkey"
-
 //DBConfig 数据库配置项
 type DBConfig struct {
 	Name   string    //数据库名称
@@ -100,7 +97,7 @@ type DbUtils struct {
 
 //DBManager 全局数据库管理器
 var DBManager = DbUtils{
-	EncryptKey:  DBEncryptKey,
+	EncryptKey:  DefaultEncryptKey,
 	DefaultName: "",
 	DefaultType: SQLDB_mssql,
 	DBList:      make(map[string]*DBConfig),
@@ -141,7 +138,7 @@ func (dm *DbUtils) LoadConfig(file ...string) (err error) {
 	if err == nil {
 		str = StrTrim(sec.Key("EncryptKey").String()) //秘钥
 		if str != "" {
-			buf, err = NewEncrypter(EncryptDES_ECB, []byte(DBEncryptKey)).Decrypt([]byte(str), true)
+			buf, err = NewEncrypter(EncryptDES_ECB, []byte(DefaultEncryptKey)).Decrypt([]byte(str), true)
 			if err == nil {
 				if len(buf) == 8 {
 					dm.EncryptKey = string(buf) //new key
@@ -162,7 +159,7 @@ func (dm *DbUtils) LoadConfig(file ...string) (err error) {
 	}
 
 	if dm.EncryptKey == "" { //default key
-		dm.EncryptKey = DBEncryptKey
+		dm.EncryptKey = DefaultEncryptKey
 	}
 
 	if dm.DBList == nil { //empty list

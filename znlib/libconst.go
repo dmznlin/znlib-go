@@ -4,6 +4,9 @@
 ******************************************************************************/
 package znlib
 
+//DefaultEncryptKey 默认加密秘钥
+const DefaultEncryptKey = "znlib-go"
+
 const (
 	LayoutTime          = "15:04:05"                //时间
 	LayoutTimeMilli     = "15:04:05.000"            //时间 + 毫秒

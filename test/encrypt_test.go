@@ -25,7 +25,7 @@ func TestDes(t *testing.T) {
 	}
 	//------------------------------------------------------------------------------------------------------------------
 	crypt.Method = znlib.EncryptDES_ECB
-	crypt.NewKey([]byte(znlib.DBEncryptKey))
+	crypt.NewKey([]byte(znlib.DefaultEncryptKey))
 
 	data, err = crypt.Encrypt(str, true)
 	if err != nil || !znlib.Equal(data, []byte("jKwUUfac8V4=")) {

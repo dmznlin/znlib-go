@@ -116,13 +116,12 @@ type DeferHandleCallback = func(err any)
 */
 func DeferHandle(throw bool, caller string, cb ...DeferHandleCallback) {
 	err := recover()
-	switch t := err.(type) {
-	case nil:
-		//no error
-	case error:
-		Error(caller + ": " + t.Error())
-	default:
-		Error(caller, LogFields{"data: ": t})
+	if err != nil {
+		if caller == "" {
+			Error(err)
+		} else {
+			Error(err, LogFields{"caller": caller})
+		}
 	}
 
 	for _, f := range cb {
@@ -148,6 +147,24 @@ func ErrorPanic(err error, message ...string) {
 		}
 
 		panic(err)
+	}
+}
+
+/*ErrorMsg 2022-08-12 15:53:48
+  参数: err,异常
+  参数: msg,消息
+  参数: newone,是否自动生成
+  描述: 生成一个携带err+msg的异常对象
+*/
+func ErrorMsg(err error, msg string, newone ...bool) error {
+	if err == nil {
+		if newone != nil && newone[0] {
+			return errors.New(msg)
+		} else {
+			return nil
+		}
+	} else {
+		return errors.WithMessage(err, msg)
 	}
 }
 

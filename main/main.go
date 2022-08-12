@@ -70,6 +70,15 @@ func main() {
 		Info(v.Div(decimal.NewFromInt32(3)).String())
 	}
 
+	str, err = RedisClient.Ping()
+	if err == nil {
+		Info(str)
+	} else {
+		Error(err)
+	}
+
+	//RedisClient.Set("name", "dmzn")
+
 	/*
 		WaitSystemExit(func() error {
 			return errors.New("first cleaner")

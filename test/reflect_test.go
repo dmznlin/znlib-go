@@ -12,7 +12,7 @@ func TestContains(t *testing.T) {
 }
 
 func TestIsNil(t *testing.T) {
-	var app []znlib.LogConfig
+	var app []znlib.SqlDbType
 	//app = make([]znlib.LogConfig, 0)
 	if znlib.IsNil(app) != true {
 		t.Error("znlib.Isnil error")
