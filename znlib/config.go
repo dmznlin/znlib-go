@@ -174,6 +174,11 @@ func load_redisConfig(ini *iniFile.File, sec *iniFile.Section) {
 		redisConfig.poolSize = val
 	}
 
+	val = sec.Key("defaultDB").MustInt(0)
+	if val != 0 {
+		redisConfig.defaultDB = val
+	}
+
 	val = sec.Key("dialTimeout").MustInt(0)
 	if val != 0 {
 		redisConfig.dialTimeout = time.Duration(val) * time.Second

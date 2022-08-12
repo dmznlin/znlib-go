@@ -28,7 +28,7 @@ func TestDes(t *testing.T) {
 	crypt.NewKey([]byte(znlib.DefaultEncryptKey))
 
 	data, err = crypt.Encrypt(str, true)
-	if err != nil || !znlib.Equal(data, []byte("jKwUUfac8V4=")) {
+	if err != nil || !znlib.Equal(data, []byte("sMGRVV9wABI=")) {
 		t.Errorf("znlib.DESEncrypt wrong")
 	} else {
 		t.Log(string(data))

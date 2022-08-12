@@ -5,8 +5,10 @@
 package znlib
 
 import (
+	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"math/rand"
 	"net"
 	"os"
 	"os/signal"
@@ -15,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 )
 
 //AppFile application full name
@@ -40,7 +43,8 @@ type application struct {
 	HostName  string   //主机名称
 	HostIP    []string //主机IP
 
-	SyncLock sync.RWMutex //全局同步锁
+	Ctx      context.Context //全局上下文
+	SyncLock sync.RWMutex    //全局同步锁
 }
 
 //Application 全局对象
@@ -244,9 +248,12 @@ func WaitSystemExit(cw ...ClearWorkOnExit) {
 //--------------------------------------------------------------------------------
 
 /*initApp 2022-05-30 14:01:55
-  描述: 初始化
+  描述: 初始化系统运行环境
 */
 func initApp() {
+	rand.Seed(time.Now().UnixNano())
+	//random
+
 	hostName, err := os.Hostname()
 	if err != nil {
 		hostName = "unknown"
@@ -273,6 +280,7 @@ func initApp() {
 		IsWindows:  strings.EqualFold(osName, "windows"),
 		HostName:   hostName,
 		HostIP:     make([]string, 0, 2),
+		Ctx:        context.Background(),
 	}
 
 	addr, err := net.InterfaceAddrs()

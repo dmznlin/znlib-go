@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	. "github.com/dmznlin/znlib-go/znlib"
+	"github.com/dmznlin/znlib-go/znlib/threading"
 	"github.com/shopspring/decimal"
 	"strconv"
 	"time"
@@ -77,7 +79,25 @@ func main() {
 		Error(err)
 	}
 
-	//RedisClient.Set("name", "dmzn")
+	ctx := context.Background()
+	RedisClient.Set(ctx, "name", "dmzn", 0)
+	str = RedisClient.Get(ctx, "name").Val()
+	Info(str)
+
+	rg := threading.NewRoutineGroup()
+	tag := "znlib.serialid"
+	lock := RedisClient.Lock(tag, 3*time.Second, 50*time.Second)
+	rg.Run(func() {
+		str, err = RedisClient.Get(ctx, tag).Result()
+		if err == nil {
+			Info(str)
+		} else {
+			Error(err)
+		}
+	})
+
+	rg.Wait()
+	lock.Unlock()
 
 	/*
 		WaitSystemExit(func() error {

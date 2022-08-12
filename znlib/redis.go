@@ -6,7 +6,11 @@ package znlib
 
 import (
 	"context"
+	"errors"
 	"github.com/go-redis/redis/v8"
+	"math/rand"
+	"runtime"
+	"strconv"
 	"time"
 )
 
@@ -16,6 +20,7 @@ var redisConfig = struct {
 	servers      []string      //服务器列表
 	password     string        //服务密码
 	poolSize     int           //最大连接数
+	defaultDB    int           //默认数据库索引
 	dialTimeout  time.Duration //连接建立超时
 	readTimeout  time.Duration //读超时
 	writeTimeout time.Duration //写超时
@@ -61,6 +66,7 @@ func init_redis() {
 			Addr:     redisConfig.servers[0],
 			Password: redisConfig.password,
 			PoolSize: redisConfig.poolSize,
+			DB:       redisConfig.defaultDB,
 
 			//超时设置
 			DialTimeout:  redisConfig.dialTimeout,
@@ -86,10 +92,56 @@ type redisUtils struct {
 	isNewClient   bool //是否新版本接口
 }
 
+type RedisLock struct {
+	key string //锁名称
+	tag string //加锁标识
+	err error  //加锁状态
+}
+
+/*Ping 2022-08-12 19:21:09
+  描述: 检测服务器是否正常
+*/
 func (r *redisUtils) Ping() (str string, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	str, err = r.Cmdable.Ping(ctx).Result()
 	return str, ErrorMsg(err, "znlib.redis.Ping")
+}
+
+/*Lock 2022-08-12 19:21:29
+  参数: key,锁名称
+  参数: waitfor,等待时长
+  参数: timeout,自动加锁超时
+  描述: 创建名为key、时长为timeout的锁,若无法获取则等待waitfor时长.
+*/
+func (r *redisUtils) Lock(key string, waitfor, timeout time.Duration) *RedisLock {
+	lock := RedisLock{
+		key: key,
+		tag: SerialID.TimeID() + strconv.Itoa(rand.Intn(100)), //随机标识
+	}
+
+	start := time.Now()
+	for r.SetNX(Application.Ctx, key, lock.tag, timeout).Val() == false {
+		runtime.Gosched()
+		//让出CPU时间片
+
+		if time.Since(start) >= waitfor {
+			lock.err = errors.New("znlib.redis.Lock: wait timeout.")
+			break
+		}
+	}
+
+	return &lock
+}
+
+/*Unlock 2022-08-12 22:53:19
+  描述: 解除锁
+*/
+func (r *RedisLock) Unlock() {
+	if r.err == nil {
+		if RedisClient.Get(Application.Ctx, r.key).Val() == r.tag {
+			RedisClient.Del(Application.Ctx, r.key)
+		}
+	}
 }
