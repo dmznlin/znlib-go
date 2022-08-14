@@ -121,6 +121,7 @@ func (w *snowflakeWorker) NextStr(encode ...bool) (string, error) {
 
 //--------------------------------------------------------------------------------
 
+//serialIDWorker 递增编号
 type serialIDWorker struct {
 	mu   sync.Mutex //同步锁定
 	base uint64     //编号基数
@@ -190,4 +191,76 @@ func (w *serialIDWorker) TimeID(year ...bool) string {
 	pos := strings.Index(id, ".")
 	buf := []byte(id)
 	return string(append(buf[:pos], buf[pos+1:]...))
+}
+
+/*DateID 2022-08-14 20:36:06
+  参数: key,id标识
+  参数: idlen,总长度
+  参数: prefix,前缀
+  描述: 生成key标识长度为idlen,每日从1递增的编号.
+
+  格式: 前缀 + 年月日 + 顺序编号,ex: 220814001
+  注意: 该函数依赖redis服务,使用相同redis.db生成的id唯一.
+*/
+func (w *serialIDWorker) DateID(key string, idlen int, prefix ...string) (id string, err error) {
+	defer DeferHandle(false, "znlib.DateID", func(e any) {
+		if e != nil {
+			err = errors.New("serialIDWorker.DateID has error.")
+			//any error
+		}
+	})
+
+	lock := RedisClient.Lock(Redis_SyncLock_DateID, 3*time.Second, 10*time.Second)
+	if lock.err != nil {
+		return "", ErrorMsg(lock.err, "znlib.DateID")
+	}
+	defer lock.Unlock()
+
+	var (
+		key_base = key + ".base:int"
+		key_date = key + ".date:string"
+		now      = DateTime2Str(time.Now(), "060102")
+
+		val        int
+		base, date string
+	)
+
+	if RedisClient.Exists(Application.Ctx, key_base).Val() == 1 { //编号基数
+		val, err = RedisClient.Get(Application.Ctx, key_base).Int()
+		if err != nil {
+			return "", ErrorMsg(err, "znlib.DateID")
+		}
+
+		val++
+		base = strconv.Itoa(val)
+	} else {
+		base = "1"
+	}
+
+	if RedisClient.Exists(Application.Ctx, key_date).Val() == 1 { //编号日期
+		date, err = RedisClient.Get(Application.Ctx, key_date).Result()
+		if err != nil {
+			return "", ErrorMsg(err, "znlib.DateID")
+		}
+
+		if date != now {
+			base = "1"
+		}
+	}
+
+	RedisClient.Set(Application.Ctx, key_base, base, 0)
+	RedisClient.Set(Application.Ctx, key_date, now, 0)
+	//更新编号参数
+
+	if prefix != nil { //1.prefix
+		id = prefix[0]
+	}
+
+	id = id + now //2.date
+	num := idlen - len(id+base)
+	if num > 0 {
+		return id + strings.Repeat("0", num) + base, nil
+	} else {
+		return id + base, nil
+	}
 }

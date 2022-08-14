@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	. "github.com/dmznlin/znlib-go/znlib"
 	"github.com/dmznlin/znlib-go/znlib/threading"
@@ -48,7 +47,7 @@ func main() {
 
 	sql, err := SQLUpdate(&user, "id=2",
 		func(field *StructFieldValue) (sqlVal string, done bool) { //构建回调函数
-			if StrIn(field.StructField, "ID") { //排除指定字段
+			if StrIn(field.StructField, "ID") {                    //排除指定字段
 				field.ExcludeMe = true
 				return "", true
 			}
@@ -79,21 +78,28 @@ func main() {
 		Error(err)
 	}
 
-	ctx := context.Background()
-	RedisClient.Set(ctx, "name", "dmzn", 0)
-	str = RedisClient.Get(ctx, "name").Val()
-	Info(str)
-
 	rg := threading.NewRoutineGroup()
 	tag := "znlib.serialid"
 	lock := RedisClient.Lock(tag, 3*time.Second, 50*time.Second)
 	rg.Run(func() {
-		str, err = RedisClient.Get(ctx, tag).Result()
+		str, err = RedisClient.Get(Application.Ctx, tag).Result()
 		if err == nil {
 			Info(str)
 		} else {
 			Error(err)
 		}
+	})
+
+	rg.Run(func() {
+		for i := 0; i < 5; i++ {
+			str, err = SerialID.DateID("test", 9)
+			if err == nil {
+				Info(str)
+			} else {
+				Error(err)
+			}
+		}
+
 	})
 
 	rg.Wait()
