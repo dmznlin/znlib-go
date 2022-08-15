@@ -216,41 +216,40 @@ func (w *serialIDWorker) DateID(key string, idlen int, prefix ...string) (id str
 	}
 	defer lock.Unlock()
 
-	var (
-		key_base = key + ".base:int"
-		key_date = key + ".date:string"
-		now      = DateTime2Str(time.Now(), "060102")
-
-		val        int
-		base, date string
+	const (
+		field_base = "base"
+		field_date = "date"
 	)
 
-	if RedisClient.Exists(Application.Ctx, key_base).Val() == 1 { //编号基数
-		val, err = RedisClient.Get(Application.Ctx, key_base).Int()
-		if err != nil {
-			return "", ErrorMsg(err, "znlib.DateID")
-		}
-
-		val++
-		base = strconv.Itoa(val)
-	} else {
+	var (
+		vals []interface{}
 		base = "1"
-	}
+		now  = DateTime2Str(time.Now(), "060102")
+	)
 
-	if RedisClient.Exists(Application.Ctx, key_date).Val() == 1 { //编号日期
-		date, err = RedisClient.Get(Application.Ctx, key_date).Result()
+	key = "znlib.serial.dateid:" + key
+	//避开key冲突
+
+	if RedisClient.Exists(Application.Ctx, key).Val() == 1 {
+		vals, err = RedisClient.HMGet(Application.Ctx, key, field_base, field_date).Result()
 		if err != nil {
-			return "", ErrorMsg(err, "znlib.DateID")
-		}
-
-		if date != now {
-			base = "1"
+			Error(ErrorMsg(err, "znlib.DateID"))
+		} else {
+			date := vals[1].(string)
+			if date == now { //
+				base = vals[0].(string)
+				val, e := strconv.ParseInt(base, 10, 64)
+				if e == nil {
+					val++
+					base = strconv.FormatInt(val, 10)
+				}
+			}
 		}
 	}
 
-	RedisClient.Set(Application.Ctx, key_base, base, 0)
-	RedisClient.Set(Application.Ctx, key_date, now, 0)
+	RedisClient.HMSet(Application.Ctx, key, map[string]string{field_base: base, field_date: now})
 	//更新编号参数
+	lock.Unlock()
 
 	if prefix != nil { //1.prefix
 		id = prefix[0]

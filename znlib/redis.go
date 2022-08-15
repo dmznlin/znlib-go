@@ -88,8 +88,7 @@ var RedisClient = &redisUtils{
 
 //redisClient redis
 type redisUtils struct {
-	redis.Cmdable      //redis操作接口
-	isNewClient   bool //是否新版本接口
+	redis.Cmdable //redis操作接口
 }
 
 type RedisLock struct {
@@ -116,9 +115,13 @@ func (r *redisUtils) Ping() (str string, err error) {
   描述: 创建名为key、时长为timeout的锁,若无法获取则等待waitfor时长.
 */
 func (r *redisUtils) Lock(key string, waitfor, timeout time.Duration) *RedisLock {
-	lock := RedisLock{
-		key: key,
-		tag: SerialID.TimeID() + strconv.Itoa(rand.Intn(100)), //随机标识
+	var lock RedisLock
+	lock.key = key
+	lock.tag, lock.err = SnowflakeID.NextStr()
+
+	if lock.err != nil {
+		lock.tag = SerialID.TimeID() + strconv.Itoa(rand.Intn(100))
+		//使用本机时钟编号,较慢
 	}
 
 	start := time.Now()
@@ -139,9 +142,10 @@ func (r *redisUtils) Lock(key string, waitfor, timeout time.Duration) *RedisLock
   描述: 解除锁
 */
 func (r *RedisLock) Unlock() {
-	if r.err == nil {
+	if r.err == nil && r.tag != "" {
 		if RedisClient.Get(Application.Ctx, r.key).Val() == r.tag {
 			RedisClient.Del(Application.Ctx, r.key)
+			r.tag = "" //结束锁定(无效化)
 		}
 	}
 }
