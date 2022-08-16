@@ -12,13 +12,36 @@ import (
 	iniFile "github.com/go-ini/ini"
 	"github.com/sirupsen/logrus"
 	"strings"
+	"sync"
 	"time"
 )
 
-/*init 2022-05-30 13:47:33
+//initLibOnce 确保一次初始化
+var initLibOnce sync.Once
+
+//initLibUtils 初始化函数集
+type initLibUtils = func()
+
+/*InitLib 2022-08-16 20:49:11
+  描述: 由调用者执行初始化
+*/
+func InitLib(before, after initLibUtils) (result struct{}) {
+	result = struct{}{}
+	if before != nil {
+		before()
+	}
+
+	initLibOnce.Do(init_lib)
+	if after != nil {
+		after()
+	}
+	return
+}
+
+/*init_lib 2022-05-30 13:47:33
   描述: 根据先后依赖调用各源文件初始化
 */
-func init() {
+func init_lib() {
 	//默认配置: -------------------------------------------------------------------
 	initApp()
 	//application.go
@@ -65,7 +88,7 @@ func init() {
 
 	//启用配置: -------------------------------------------------------------------
 	if cfg.logger {
-		initLogger()
+		init_logger()
 		//logger.go
 	}
 
@@ -75,7 +98,7 @@ func init() {
 	}
 
 	if cfg.dbmanager {
-		db_init()
+		init_db()
 		//dbhelper.go
 	}
 

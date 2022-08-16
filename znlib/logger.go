@@ -169,7 +169,7 @@ func WriteDefaultLog(data string) {
 
 //-----------------------------------------------------------------------------
 
-func initLogger() {
+func init_logger() {
 	Logger = logrus.New()
 	//new logger
 

@@ -9,21 +9,34 @@ import (
 	"time"
 )
 
-func TestSQLJoin(t *testing.T) {
-	var user struct {
-		Id   int    `db:"r_id"`
-		Name string `db:"u_name"`
-		Age  int    `db:"u_age"`
-	}
+type PS struct {
+	F1 string    `db:"name"`
+	F2 int       `db:"addr"`
+	F3 time.Time `db:"phone"`
+}
 
+type userInfo struct {
+	PS
+	Id   int    `table:"sys_user" db:"r_id" `
+	Age  int    `db:"u_age"`
+	Name string `db:"u_name" table:"sys_user"`
+}
+
+var user = userInfo{
+	PS:   PS{F1: "aa", F2: 10, F3: time.Now()},
+	Id:   10,
+	Name: "dmzn",
+	Age:  5,
+}
+
+func TestSQLJoin(t *testing.T) {
 	str := SQLFields(&user, "u_name")
-	if str != "r_id,u_age" {
+	if str != "name,addr,phone,r_id,u_age" {
 		t.Errorf("znlib.SQLFieldsJoin error")
 	}
 }
 
 func TestGetDB(t *testing.T) {
-	DBManager.LoadConfig("D:\\Program Files\\MyVCL\\go\\znlib-go\\main\\bin\\db.ini")
 	rg := threading.NewRoutineGroup()
 	rg.Run(func() {
 		for i := 0; i < 3; i++ {
@@ -48,13 +61,35 @@ func TestGetDB(t *testing.T) {
 			time.Sleep(1 * time.Second)
 		}
 	})
-
-	rg.Run(func() {
-		time.Sleep(1 * time.Second)
-		DBManager.UpdateDSN("mssql_main", "hello")
-	})
-
+	/*
+		rg.Run(func() {
+			time.Sleep(1 * time.Second)
+			DBManager.UpdateDSN("mssql_main", "hello")
+		})
+	*/
 	rg.Wait()
+}
+
+func TestSQLUpdate(t *testing.T) {
+	sql, err := SQLUpdate(&user, "id=2",
+		func(field *StructFieldValue) (sqlVal string, done bool) { //构建回调函数
+			if StrIn(field.StructField, "ID") { //排除指定字段
+				field.ExcludeMe = true
+				return "", true
+			}
+
+			if field.TableField == "u_age" { //设置特殊值
+				return "u_age+1", true
+			}
+
+			return "", false
+		})
+
+	if err == nil {
+		t.Log(sql)
+	} else {
+		t.Error(err)
+	}
 }
 
 type typeA struct{}
@@ -68,7 +103,6 @@ func (a typeA) Msg() {
 }
 
 func TestTrans(t *testing.T) {
-	DBManager.LoadConfig("D:\\Program Files\\MyVCL\\go\\znlib-go\\main\\bin\\db.ini")
 	rg := threading.NewRoutineGroup()
 	rg.Run(func() {
 		conn, err := DBManager.GetDB("mssql_main")

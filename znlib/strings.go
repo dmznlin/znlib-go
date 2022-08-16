@@ -98,6 +98,20 @@ func StrDel(str string, from, end int) string {
 	}
 }
 
+/*StrDelSub 2022-08-16 14:52:17
+  参数: str,字符串
+  参数: sub,子字符串
+  描述: 从str中删除sub,不区分大小写
+*/
+func StrDelSub(str string, sub string) (string, bool) {
+	pos := StrPos(str, sub)
+	if pos < 0 {
+		return "", false
+	}
+
+	return StrDel(str, pos, pos+len([]rune(sub))-1), true
+}
+
 /*StrReplace 2022-05-30 13:43:26
   参数: str,字符串
   参数: new,新字符串

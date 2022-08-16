@@ -103,10 +103,10 @@ var DBManager = DbUtils{
 	DBList:      make(map[string]*DBConfig),
 }
 
-/*db_init 2022-07-26 16:33:53
+/*init_db 2022-07-26 16:33:53
   描述: 初始化数据库配置
 */
-func db_init() {
+func init_db() {
 	DBManager.LoadConfig()
 }
 

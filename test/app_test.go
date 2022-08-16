@@ -5,6 +5,11 @@ import (
 	"testing"
 )
 
+//znlib初始化
+var _ = InitLib(func() {
+	AppPath = `D:\Program Files\MyVCL\go\znlib-go\main\bin`
+}, nil)
+
 func Test_FixPath(t *testing.T) {
 	last := Application.ExePath[len(Application.ExePath)-1]
 	if Application.IsWindows && last != '\\' {
