@@ -3,7 +3,6 @@ package test
 import (
 	"fmt"
 	. "github.com/dmznlin/znlib-go/znlib"
-	"github.com/dmznlin/znlib-go/znlib/threading"
 	_ "github.com/mattn/go-adodb"
 	"testing"
 	"time"
@@ -37,8 +36,8 @@ func TestSQLJoin(t *testing.T) {
 }
 
 func TestGetDB(t *testing.T) {
-	rg := threading.NewRoutineGroup()
-	rg.Run(func() {
+	rg := NewRoutineGroup()
+	rg.Run(func(arg ...interface{}) {
 		for i := 0; i < 3; i++ {
 			conn, err := DBManager.GetDB("mssql_main")
 			if err == nil {
@@ -103,8 +102,8 @@ func (a typeA) Msg() {
 }
 
 func TestTrans(t *testing.T) {
-	rg := threading.NewRoutineGroup()
-	rg.Run(func() {
+	rg := NewRoutineGroup()
+	rg.Run(func(arg ...interface{}) {
 		conn, err := DBManager.GetDB("mssql_main")
 		if err != nil {
 			t.Error(err)
