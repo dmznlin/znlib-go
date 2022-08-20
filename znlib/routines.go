@@ -19,19 +19,19 @@ func NewRoutineGroup() *RoutineGroup {
 }
 
 //routineFunction routine回调函数
-type routineFunction = func(arg ...interface{})
+type routineFunction = func(args ...interface{})
 
 /*Run 2022-08-19 19:12:58
   参数: fn,函数
   参数: arg,参数
   描述: 在routine中调用fn
 */
-func (g *RoutineGroup) Run(fn routineFunction, arg ...interface{}) {
+func (g *RoutineGroup) Run(fn routineFunction, args ...interface{}) {
 	g.waitGroup.Add(1)
 
 	go func() {
 		defer g.waitGroup.Done()
-		fn(arg...)
+		fn(args...)
 	}()
 }
 
@@ -40,13 +40,13 @@ func (g *RoutineGroup) Run(fn routineFunction, arg ...interface{}) {
   参数: arg,参数
   描述: 在routine中调用fn,捕捉异常.
 */
-func (g *RoutineGroup) RunSafe(fn func(arg ...interface{}), arg ...interface{}) {
+func (g *RoutineGroup) RunSafe(fn routineFunction, args ...interface{}) {
 	g.waitGroup.Add(1)
 
 	go func() {
 		defer g.waitGroup.Done()                               //2.done
 		defer DeferHandle(false, "znlib.RoutineGroup.RunSafe") //1.log first
-		fn(arg...)
+		fn(args...)
 	}()
 }
 

@@ -23,7 +23,7 @@ func TestEventBus(t *testing.T) {
 	event.Publish("b", "b.fn1", 222)
 	//发布主题数据
 
-	event.Unsubscribe("a", fn1)
+	event.Unsubscribe("a")
 	event.WaitAsync()
 	//退订和等待
 }

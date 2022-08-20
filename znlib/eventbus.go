@@ -100,12 +100,22 @@ func (bus *EventBus) HasCallback(topic string) bool {
 	}
 }
 
-func (bus *EventBus) Unsubscribe(topic string, handler interface{}) error {
+/*Unsubscribe 2022-08-20 18:53:04
+  参数: topic,主题
+  参数: fn,函数
+  描述: 删除topic主题中的fn函数
+*/
+func (bus *EventBus) Unsubscribe(topic string, fn ...interface{}) error {
 	bus.lock.Lock()
 	defer bus.lock.Unlock()
 
 	if _, ok := bus.handlers[topic]; ok {
-		return bus.deleteHandler(topic, nil, handler)
+		if fn == nil { //delete topic
+			delete(bus.handlers, topic)
+			return nil
+		}
+
+		return bus.deleteHandler(topic, nil, fn...)
 	} else {
 		return fmt.Errorf("znlib.Unsubscribe: topic %s doesn't exist", topic)
 	}
@@ -153,7 +163,7 @@ func (bus *EventBus) Publish(topic string, args ...interface{}) {
 		func() {
 			bus.lock.Lock()
 			defer bus.lock.Unlock()
-			bus.deleteHandler(topic, onceList, nil)
+			bus.deleteHandler(topic, onceList)
 		}()
 	}
 }
@@ -186,21 +196,27 @@ func (bus *EventBus) doPublish(handler *eventHandler, args ...interface{}) {
   参数: fn,待删除方法
   描述: 删除topic主题指定的handler
 */
-func (bus *EventBus) deleteHandler(topic string, toDel []*eventHandler, fn interface{}) error {
+func (bus *EventBus) deleteHandler(topic string, toDel []*eventHandler, fn ...interface{}) error {
 	if len(toDel) < 1 && fn == nil {
 		return fmt.Errorf("znlib.EventBus: deleteHandler has invalid input.")
 	}
 
 	if fn != nil {
-		val := reflect.ValueOf(fn)
-		for _, h := range bus.handlers[topic] {
-			if h.callBack.Type() == val.Type() && h.callBack.Pointer() == val.Pointer() {
-				if toDel == nil {
-					toDel = make([]*eventHandler, 0)
-				}
+		for _, f := range fn {
+			if f == nil { //nil参数
+				continue
+			}
 
-				toDel = append(toDel, h)
-				//fill list to delete
+			val := reflect.ValueOf(f)
+			for _, h := range bus.handlers[topic] {
+				if h.callBack.Type() == val.Type() && h.callBack.Pointer() == val.Pointer() {
+					if toDel == nil {
+						toDel = make([]*eventHandler, 0)
+					}
+
+					toDel = append(toDel, h)
+					//fill list to delete
+				}
 			}
 		}
 	}

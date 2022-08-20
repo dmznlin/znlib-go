@@ -50,3 +50,36 @@ func TestRoutineWidthParams(t *testing.T) {
 		}
 	}, 1, 2, 3)
 }
+
+func TestRoutineInRange(t *testing.T) {
+	array := []string{"a", "b", "c"}
+	group := NewRoutineGroup()
+	for _, v := range array {
+		group.Run(func(arg ...interface{}) {
+			t.Logf("first: %s", v)
+			//routine启动后,v值保持在最后一个
+		})
+	}
+
+	for _, v := range array {
+		group.Run(func(arg ...interface{}) {
+			t.Logf("second: %s", arg[0])
+		}, v) //参数复制v值
+	}
+	group.Wait()
+}
+
+func testRoutineInRange_fun(t *testing.T, wg *sync.WaitGroup, str string) {
+	t.Logf("in routine: %s", str)
+	wg.Done()
+}
+func TestRoutineInRange2(t *testing.T) {
+	wg := &sync.WaitGroup{}
+	array := []string{"a", "b", "c"}
+	for _, v := range array {
+		wg.Add(1)
+		go testRoutineInRange_fun(t, wg, v)
+	}
+
+	wg.Wait()
+}
