@@ -72,7 +72,7 @@ func TestGetDB(t *testing.T) {
 func TestSQLUpdate(t *testing.T) {
 	sql, err := SQLUpdate(&user, "id=2",
 		func(field *StructFieldValue) (sqlVal string, done bool) { //构建回调函数
-			if StrIn(field.StructField, "ID") { //排除指定字段
+			if StrIn(field.StructField, "ID") {                    //排除指定字段
 				field.ExcludeMe = true
 				return "", true
 			}

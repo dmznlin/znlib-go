@@ -20,15 +20,6 @@ import (
 	"time"
 )
 
-//AppFile application full name
-var AppFile = os.Args[0]
-
-//AppPath application所在路径
-var AppPath = filepath.Dir(AppFile)
-
-//PathSeparator 路径分隔符: / or \\
-var PathSeparator = "/"
-
 //application相关属性
 type application struct {
 	ExeName    string //exe full
@@ -47,8 +38,19 @@ type application struct {
 	SyncLock sync.RWMutex    //全局同步锁
 }
 
-//Application 全局对象
-var Application application
+var (
+	//Application 全局对象
+	Application application
+
+	//AppFile application full name
+	AppFile = os.Args[0]
+
+	//AppPath application所在路径
+	AppPath = filepath.Dir(AppFile)
+
+	//PathSeparator 路径分隔符: / or \\
+	PathSeparator = "/"
+)
 
 /*OSName 2022-05-30 13:14:24
   描述: 获取当前系统名称
@@ -109,16 +111,13 @@ func MakeDir(dir string) {
 
 //--------------------------------------------------------------------------------
 
-//DeferHandleCallback 异常处理时的回调函数
-type DeferHandleCallback = func(err any)
-
 /*DeferHandle 2022-05-30 13:12:31
   参数: throw,重新抛出异常
   参数: caller,调用者名称
   参数: cb,回调函数
   描述: 用于defer默认调用
 */
-func DeferHandle(throw bool, caller string, cb ...DeferHandleCallback) {
+func DeferHandle(throw bool, caller string, cb ...func(err any)) {
 	err := recover()
 	if err != nil {
 		if caller == "" {
@@ -128,8 +127,8 @@ func DeferHandle(throw bool, caller string, cb ...DeferHandleCallback) {
 		}
 	}
 
-	for _, f := range cb {
-		f(err)
+	for _, fn := range cb {
+		fn(err)
 	}
 
 	if throw { //re-panic
@@ -213,14 +212,11 @@ func (tf TryFinal) Run() (err error) {
 	return
 }
 
-//ClearWorkOnExit 程序关闭时的清理工作
-type ClearWorkOnExit = func() error
-
 /*WaitSystemExit 2022-06-08 15:24:34
   参数: cw,清理函数
   描述: 捕捉操作系统关闭信号,执行清理后退出
 */
-func WaitSystemExit(cw ...ClearWorkOnExit) {
+func WaitSystemExit(cw ...func() error) {
 	// 程序无法捕获信号 SIGKILL 和 SIGSTOP （终止和暂停进程），因此 os/signal 包对这两个信号无效。
 	signals := []os.Signal{syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT}
 	if Application.IsLinux {
@@ -237,9 +233,9 @@ func WaitSystemExit(cw ...ClearWorkOnExit) {
 	close(ch)
 	Info("信号:" + s.String() + ",开始清理工作.")
 
-	for i := range cw {
-		if err := cw[i](); err != nil {
-			Error(err.Error())
+	for _, fn := range cw {
+		if err := fn(); err != nil {
+			Error(err)
 		}
 	}
 	Info("清理工作完成,系统退出.")
@@ -286,9 +282,9 @@ func initApp() {
 	addr, err := net.InterfaceAddrs()
 	if err == nil {
 		for _, val := range addr {
-			if ipnet, ok := val.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-				if ipnet.IP.To4() != nil {
-					Application.HostIP = append(Application.HostIP, ipnet.IP.String())
+			if ip, ok := val.(*net.IPNet); ok && !ip.IP.IsLoopback() {
+				if ip.IP.To4() != nil {
+					Application.HostIP = append(Application.HostIP, ip.IP.String())
 				}
 			}
 		}

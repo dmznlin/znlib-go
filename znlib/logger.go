@@ -9,6 +9,7 @@ import (
 	"fmt"
 	rotatelogs "github.com/lestrrat/go-file-rotatelogs"
 	"github.com/rifflock/lfshook"
+	"github.com/shiena/ansicolor"
 	"github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
@@ -40,6 +41,7 @@ var logConfig = struct {
 	fileName string        //日志文件名
 	logLevel logrus.Level  //日志级别
 	maxAge   time.Duration //日志保存天数
+	colors   bool          //使用彩色终端
 }{
 	fileName: "sys.log",
 	logLevel: logrus.InfoLevel,
@@ -212,20 +214,21 @@ func init_logger() {
 	})
 	Logger.AddHook(lfHook)
 
-	/* You could set this to any `io.Writer` such as a file
-	file, err := os.OpenFile(logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		WriteDefaultLog("znlib.os.OpenFile: " + err.Error())
-		return
-	}
-
-	Logger.SetOutput(io.MultiWriter(file, os.Stdout))
-	//设置双输出 */
-	Logger.SetLevel(logConfig.logLevel)
-
-	Logger.SetFormatter(&logrus.TextFormatter{
+	var nFormatter = logrus.TextFormatter{
 		ForceQuote:      true,                //键值对加引号
 		FullTimestamp:   true,                //完整时间戳
 		TimestampFormat: LayoutDateTimeMilli, //时间格式
-	})
+		ForceColors:     false,
+	}
+
+	if logConfig.colors {
+		nFormatter.ForceColors = true
+		// then wrap the log output with it
+		Logger.SetOutput(ansicolor.NewAnsiColorWriter(os.Stdout))
+	}
+
+	Logger.SetFormatter(&nFormatter)
+	//输出格式化
+	Logger.SetLevel(logConfig.logLevel)
+	//输出级别控制
 }

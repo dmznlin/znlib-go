@@ -141,6 +141,10 @@ func load_logConfig(ini *iniFile.File, sec *iniFile.Section) {
 	val = sec.Key("loglevel").In("info", levels)
 	logConfig.logLevel, _ = logrus.ParseLevel(val)
 
+	if Application.IsWindows { //win下支持彩色
+		logConfig.colors = sec.Key("colorful").String() == "true"
+	}
+
 	days := sec.Key("max_age").MustInt(30)
 	logConfig.maxAge = time.Duration(days) * 24 * time.Hour
 	//以天计时
