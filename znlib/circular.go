@@ -26,6 +26,9 @@ const (
 	Circular_FILO_FixSize                     //固定大小栈,旧数据被覆盖
 )
 
+//CircularMaxCap 队列最大容量
+var CircularMaxCap = 1024
+
 //circularItem 循环队列中的数据项
 type circularData[T any] struct {
 	data  T                //数据
@@ -37,7 +40,8 @@ type circularData[T any] struct {
 type CircularQueue[T any] struct {
 	lock sync.RWMutex     //同步锁
 	mode CircularMode     //模式
-	cap  int              //队列容量
+	max  int              //最大容量
+	cap  int              //当前容量
 	num  int              //数据个数
 	head *circularData[T] //队首数据
 	tail *circularData[T] //队尾数据
@@ -46,32 +50,43 @@ type CircularQueue[T any] struct {
 /*NewCircularQueue 2022-08-24 09:51:40
   参数: mode,队列模式
   参数: cap,初始化大小
+  参数: max,最大可容纳
   描述: 生成一个 T 类型的环形队列
 
   调用方法:
   queue := NewCircularQueue[int](Circular_FIFO, 0)
 */
-func NewCircularQueue[T any](mode CircularMode, size int) *CircularQueue[T] {
+func NewCircularQueue[T any](mode CircularMode, cap int, max ...int) *CircularQueue[T] {
 	if mode > Circular_FILO_FixSize {
 		panic(errors.New("znlib.NewCircularQueue: invalid mode"))
 	}
 
-	if size < 1 {
-		size = 3 //循环链中,最少3各元素
+	if cap < 1 {
+		cap = 3 //循环链中,最少3各元素
+	}
+
+	var maxNum int
+	if max != nil && max[0] >= cap {
+		maxNum = max[0]
+	}
+
+	if maxNum < cap {
+		maxNum = CircularMaxCap
 	}
 
 	queue := CircularQueue[T]{
 		tail: nil,
 		mode: mode,
-		cap:  size,
+		cap:  cap,
 		num:  0,
+		max:  maxNum,
 	}
 
 	queue.head = &circularData[T]{prior: nil, next: nil}
 	cd := queue.head
 	//首元素
 
-	for i := 1; i < size; i++ {
+	for i := 1; i < cap; i++ {
 		cd.next = &circularData[T]{prior: cd, next: nil} //链尾新建元素
 		cd = cd.next
 	}
@@ -85,9 +100,9 @@ func NewCircularQueue[T any](mode CircularMode, size int) *CircularQueue[T] {
   参数: values,值列表
   描述: 添加一组值到队列中
 */
-func (cq *CircularQueue[T]) Push(values ...T) {
+func (cq *CircularQueue[T]) Push(values ...T) error {
 	if values == nil { //empty
-		return
+		return errors.New("znlib.CircularQueue.Push: no value to push.")
 	}
 
 	cq.lock.Lock()
@@ -107,6 +122,10 @@ func (cq *CircularQueue[T]) Push(values ...T) {
 				cq.tail = cq.tail.next
 				cq.tail.data = val
 			} else {
+				if cq.num >= cq.max { //超出最大容量
+					return errors.New("znlib.CircularQueue.Push: out of max capacity.")
+				}
+
 				cq.tail.next = &circularData[T]{prior: cq.tail, next: cq.tail.next} //插入新元素
 				cq.tail = cq.tail.next
 				cq.tail.data = val
@@ -120,6 +139,8 @@ func (cq *CircularQueue[T]) Push(values ...T) {
 			cq.num++
 		}
 	}
+
+	return nil
 }
 
 /*Pop 2022-08-24 12:06:12
@@ -210,4 +231,47 @@ func (cq *CircularQueue[T]) MPop(num int) (values []T) {
 */
 func (cq *CircularQueue[T]) Size() (num, cap int) {
 	return cq.num, cq.cap
+}
+
+/*Walk 2022-08-24 15:44:14
+  参数: walk,遍历函数
+  描述: 遍历队列中的元素
+*/
+func (cq *CircularQueue[T]) Walk(walk func(idx int, value T)) {
+	cq.lock.RLock()
+	defer cq.lock.RUnlock()
+
+	if cq.tail == nil { //队列为空
+		return
+	}
+
+	var idx int = 0
+	switch cq.mode {
+	case Circular_FIFO, Circular_FIFO_FixSize: //先进先出
+		cd := cq.head
+		for cd != nil {
+			walk(idx, cd.data)
+			//callback
+
+			if cd == cq.tail { //队尾
+				cd = nil
+			} else {
+				cd = cd.next
+				idx++
+			}
+		}
+	case Circular_FILO, Circular_FILO_FixSize: //先进后出
+		cd := cq.tail
+		for cd != nil {
+			walk(idx, cd.data)
+			//callback
+
+			if cd == cq.head { //队首
+				cd = nil
+			} else {
+				cd = cd.prior
+				idx++
+			}
+		}
+	}
 }

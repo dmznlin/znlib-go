@@ -47,3 +47,12 @@ func TestCircularString(t *testing.T) {
 		t.Error("znlib.CircularQueue.pop wrong")
 	}
 }
+
+func TestCircularWalk(t *testing.T) {
+	queue := znlib.NewCircularQueue[string](znlib.Circular_FILO, 0, 3)
+	queue.Push("Hello", "World", "U", "Are", "Welcome") //value list
+
+	queue.Walk(func(idx int, value string) {
+		t.Logf("walk val: %d,%s", idx, value)
+	})
+}
