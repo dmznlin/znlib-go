@@ -236,8 +236,22 @@ func (cq *CircularQueue[T]) Size() (num, cap int) {
 /*Walk 2022-08-24 15:44:14
   参数: walk,遍历函数
   描述: 遍历队列中的元素
+
+  walk func:
+  参数: idx,元素索引
+  参数: value,元素值
+  参数: next,是否继续遍历
+
+  例子:
+  queue := NewCircularQueue[string](znlib.Circular_FILO, 0, 3)
+  queue.Push("Hello", "World", "U", "Are", "Welcome") //value list
+
+  queue.Walk(func(idx int, value string, next *bool) {
+  	t.Logf("walk val: %d,%s", idx, value)
+  	*next = value != "U"
+  })
 */
-func (cq *CircularQueue[T]) Walk(walk func(idx int, value T)) {
+func (cq *CircularQueue[T]) Walk(walk func(idx int, value T, next *bool)) {
 	cq.lock.RLock()
 	defer cq.lock.RUnlock()
 
@@ -245,13 +259,19 @@ func (cq *CircularQueue[T]) Walk(walk func(idx int, value T)) {
 		return
 	}
 
-	var idx int = 0
+	var (
+		idx  int  = 0
+		next bool = true
+	)
+
 	switch cq.mode {
 	case Circular_FIFO, Circular_FIFO_FixSize: //先进先出
 		cd := cq.head
 		for cd != nil {
-			walk(idx, cd.data)
-			//callback
+			walk(idx, cd.data, &next) //callback
+			if !next {
+				break
+			}
 
 			if cd == cq.tail { //队尾
 				cd = nil
@@ -263,8 +283,10 @@ func (cq *CircularQueue[T]) Walk(walk func(idx int, value T)) {
 	case Circular_FILO, Circular_FILO_FixSize: //先进后出
 		cd := cq.tail
 		for cd != nil {
-			walk(idx, cd.data)
-			//callback
+			walk(idx, cd.data, &next) //callback
+			if !next {
+				break
+			}
 
 			if cd == cq.head { //队首
 				cd = nil

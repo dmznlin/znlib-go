@@ -2,6 +2,7 @@ package test
 
 import (
 	"github.com/dmznlin/znlib-go/znlib"
+	"github.com/gofrs/uuid"
 	"testing"
 )
 
@@ -40,5 +41,18 @@ func TestSnowflake(t *testing.T) {
 
 		str = znlib.SerialID.TimeID()
 		znlib.Info(str)
+	}
+}
+
+func TestUUID(t *testing.T) {
+	var ver byte = 1
+	for ver <= uuid.V7 {
+		str, err := znlib.RandomID.UUID(ver)
+		if err != nil {
+			t.Logf("znlib.UUID: ver %d wrong", ver)
+		}
+
+		t.Log(str)
+		ver++
 	}
 }

@@ -11,6 +11,7 @@ package znlib
 import (
 	"encoding/binary"
 	"errors"
+	"github.com/gofrs/uuid"
 	"math"
 	"strconv"
 	"strings"
@@ -262,4 +263,60 @@ func (w *serialIDWorker) DateID(key string, idlen int, prefix ...string) (id str
 	} else {
 		return id + base, nil
 	}
+}
+
+//--------------------------------------------------------------------------------
+
+//randomIDWorker 随机编号
+type randomIDWorker struct{}
+
+//RandomID 全局随机编号
+var RandomID = &randomIDWorker{}
+
+/*UUID 2022-08-26 12:28:03
+  参数: version,版本
+  描述: 获取指定版本的uuid
+
+  uuid版本:
+  V1: Version 1 (date-time and MAC address)
+  _ : Version 2 (date-time and MAC address, DCE security version) [removed]
+  V3: Version 3 (namespace name-based)
+  V4: Version 4 (random)
+  V5: Version 5 (namespace name-based)
+  V6: Version 6 (k-sortable timestamp and random data) [peabody draft]
+  V7: Version 7 (k-sortable timestamp, with configurable precision, and random data) [peabody draft]
+  _ : Version 8 (k-sortable timestamp, meant for custom implementations) [peabody draft] [not implemented]
+*/
+func (w *randomIDWorker) UUID(version byte) (id string, err error) {
+	var (
+		uid uuid.UUID
+	)
+
+	switch version {
+	case uuid.V1:
+		uid, err = uuid.NewV1()
+	case uuid.V3:
+		uid, err = uuid.NewV1()
+		if err == nil {
+			uid = uuid.NewV3(uid, "znlib.uid.v3")
+		}
+	case uuid.V4:
+		uid, err = uuid.NewV4()
+	case uuid.V5:
+		uid, err = uuid.NewV1()
+		if err == nil {
+			uid = uuid.NewV5(uid, "znlib.uid.v5")
+		}
+	case uuid.V6:
+		uid, err = uuid.NewV6()
+	case uuid.V7:
+		uid, err = uuid.NewV7(uuid.NanosecondPrecision)
+	default:
+		err = errors.New("znlib.UUID: invalid version.")
+	}
+
+	if err == nil {
+		id = uid.String()
+	}
+	return
 }

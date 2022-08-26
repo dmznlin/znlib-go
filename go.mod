@@ -6,6 +6,7 @@ require (
 	github.com/forgoer/openssl v1.2.1
 	github.com/go-ini/ini v1.66.4
 	github.com/go-redis/redis/v8 v8.11.5
+	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lestrrat/go-file-rotatelogs v0.0.0-20180223000712-d3151e2a480f
 	github.com/mattn/go-adodb v0.0.1
