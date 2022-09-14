@@ -5,7 +5,10 @@
 package znlib
 
 import (
+	"errors"
+	"fmt"
 	"sync"
+	"time"
 )
 
 //RoutineGroup routine组
@@ -55,4 +58,38 @@ func (g *RoutineGroup) RunSafe(fn routineFunction, args ...interface{}) {
 */
 func (g *RoutineGroup) Wait() {
 	g.waitGroup.Wait()
+}
+
+/*WaitRun 2022-09-09 10:32:51
+  参数: timeout,超时间隔
+  参数: fn,函数
+  参数: args,参数
+  描述: 执行fn参数,等待timeout后超时退出
+*/
+func (g *RoutineGroup) WaitRun(timeout time.Duration, fn routineFunction, args ...interface{}) error {
+	done := make(chan error, 1)
+	//用于接收异常
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				val, ok := err.(error)
+				if ok {
+					done <- val
+				} else {
+					done <- errors.New(fmt.Sprintf("znlib.WaitRun: %v", err))
+				}
+			} else {
+				done <- nil
+			}
+		}()
+
+		fn(args...)
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(timeout):
+		return errors.New("znlib.WaitRun: timeout.")
+	}
 }

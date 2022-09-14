@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestRoutineGroupRun(t *testing.T) {
@@ -82,4 +83,18 @@ func TestRoutineInRange2(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestRunWait(t *testing.T) {
+	group := NewRoutineGroup()
+	err := group.WaitRun(2*time.Second, func(args ...interface{}) {
+		time.Sleep(1 * time.Second)
+		//panic(args[0])
+	}, "Hello Panic")
+
+	if err == nil {
+		t.Logf("znlib.WaitRun no timeout.")
+	} else {
+		t.Errorf(err.Error())
+	}
 }
