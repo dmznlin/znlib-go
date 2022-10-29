@@ -86,7 +86,7 @@ func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType)
 		//update db type
 	}
 
-	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) bool {
+	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) (bool, error) {
 		if nValue.TableName == "" {
 			nValue.TableName = field.Tag.Get(SQLTag_Table)
 			//get table name
@@ -101,7 +101,7 @@ func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType)
 
 				sqlVal, done = getVal(&nValue)
 				if done && nValue.ExcludeMe {
-					return false
+					return false, nil
 					//该字段已排除,不参与构建sql
 				}
 			} else {
@@ -120,10 +120,10 @@ func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType)
 				//value
 			}
 
-			return false
+			return false, nil
 			//带有db的字段,无需深层解析
 		}
-		return true
+		return true, nil
 	})
 
 	if err != nil {
@@ -170,7 +170,7 @@ func SQLUpdate(obj interface{}, where string, getVal GetStructFieldValue, dbType
 		//update db type
 	}
 
-	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) bool {
+	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) (bool, error) {
 		if nValue.TableName == "" {
 			nValue.TableName = field.Tag.Get(SQLTag_Table)
 			//get table name
@@ -195,10 +195,10 @@ func SQLUpdate(obj interface{}, where string, getVal GetStructFieldValue, dbType
 				nFields = append(nFields, nValue.TableField+"="+SQLValue(value.Interface(), nValue.DbType))
 			}
 
-			return false
+			return false, nil
 			//带有db的字段,无需深层解析
 		}
-		return true
+		return true, nil
 	})
 
 	if err != nil {

@@ -6,6 +6,7 @@ package znlib
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/shopspring/decimal" //浮点数计算
@@ -176,9 +177,9 @@ func ReflectValue(obj interface{}) reflect.Value {
   参数: field,struct字段
   参数: value,struct字段数据
   参数: level,遍历层级,从1开始
-  返回: next,是否进行更深层处理
+  返回: next,是否进行更深层处理;err,是否有异常
 */
-type StructFieldsWalker = func(field reflect.StructField, value reflect.Value, level int) (next bool)
+type StructFieldsWalker = func(field reflect.StructField, value reflect.Value, level int) (next bool, err error)
 
 /*WalkStruct 2022-07-19 11:23:14
   参数: obj,对象
@@ -213,14 +214,17 @@ func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
 		return errors.New(str)
 	}
 
-	var next bool
 	fieldCount := objType.NumField()
-
 	for nIdx := 0; nIdx < fieldCount; nIdx++ {
 		field := objType.Field(nIdx)
 		if field.IsExported() {
 			fieldValue := objValue.Field(nIdx)
-			next = sw(field, fieldValue, curentLevel)
+			next, err := sw(field, fieldValue, curentLevel)
+
+			if err != nil {
+				return err
+			}
+
 			if next && fieldValue.Kind() == reflect.Struct {
 				WalkStruct(fieldValue.Interface(), sw, curentLevel+1)
 			}
@@ -279,9 +283,9 @@ func getStructTags(objType reflect.Type, key string, lock bool) (idx int) {
 */
 func setStructTags(obj interface{}, tags *structTags, deep bool) error {
 	var tag string
-	err := WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) bool {
+	err := WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) (bool, error) {
 		if field.Anonymous {
-			return true
+			return true, nil
 		}
 
 		tag = field.Tag.Get(tags.key)
@@ -289,11 +293,11 @@ func setStructTags(obj interface{}, tags *structTags, deep bool) error {
 			tags.tags[field.Name] = tag                //map
 			tags.tagArray = append(tags.tagArray, tag) //array
 
-			return false
+			return false, nil
 			//有tag值,无需深层解析
 		}
 
-		return deep //检索1层或全部
+		return deep, nil //检索1层或全部
 	})
 
 	if err == nil { //存入缓存
@@ -336,9 +340,9 @@ func StructTags(obj interface{}, key string, deep bool) (map[string]string, erro
 }
 
 /*StructTagList 2022-07-20 14:08:20
-  参数: obj,obj,对象
-  参数: key,key,Tag名
-  参数: deep,deep,是否检索全部层级
+  参数: obj,对象
+  参数: key,Tag名
+  参数: deep,是否检索全部层级
   描述: 获取obj包含key的tag值列表,按obj字段的先后顺序排列
 */
 func StructTagList(obj interface{}, key string, deep bool) ([]string, error) {
@@ -358,4 +362,63 @@ func StructTagList(obj interface{}, key string, deep bool) ([]string, error) {
 	err := setStructTags(obj, &nTags, deep)
 	//fill data
 	return nTags.tagArray, err
+}
+
+/*StructToBytes 2022-10-19 11:13:51
+  参数: obj,对象
+  参数: nBigEndian,大端模式
+  参数: key,Tag名
+  描述: 将obj转为网络字节流
+
+encoding/binary 不能用于编码大小不固定的任意值,所以结构体的字段需要"固定大小".如果您删除string字段并将int字段更改为int32,它将起作用.
+引用 binary.Write() :
+Write writes the binary representation of data into w. Data must be a fixed-size value or a slice of fixed-size values,
+or a pointer to such data.
+*/
+func StructToBytes(obj interface{}, nBigEndian bool, key ...string) (data []byte, err error) {
+	var buf = new(bytes.Buffer)
+	if key == nil { //no tag filter
+		if nBigEndian {
+			err = binary.Write(buf, binary.BigEndian, obj)
+		} else {
+			err = binary.Write(buf, binary.LittleEndian, obj)
+		}
+
+		return buf.Bytes(), err
+	}
+
+	tagName := key[0]
+	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) (next bool, err error) {
+		if value.Kind() != reflect.Struct && field.Tag.Get(tagName) != "" { //包含指定tag
+			if nBigEndian {
+				err = binary.Write(buf, binary.BigEndian, value.Interface())
+			} else {
+				err = binary.Write(buf, binary.LittleEndian, value.Interface())
+			}
+
+			return field.Tag != "", err
+			//有tag值,无需深层解析
+		}
+
+		return true, nil
+	})
+
+	return buf.Bytes(), err
+}
+
+/*StructFromBytes 2022-10-29 09:25:07
+  参数: obj,对象指针
+  参数: data,字节数据
+  参数: nBigEndian,大端模式
+  描述: 将data赋值给obj对象
+*/
+func StructFromBytes(obj interface{}, data []byte, nBigEndian bool) (err error) {
+	buf := bytes.NewReader(data)
+	if nBigEndian {
+		err = binary.Read(buf, binary.BigEndian, obj)
+	} else {
+		err = binary.Read(buf, binary.LittleEndian, obj)
+	}
+
+	return err
 }

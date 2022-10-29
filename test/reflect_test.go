@@ -38,3 +38,22 @@ func TestStructTags(t *testing.T) {
 		t.Error("znlib.StructTags error")
 	}
 }
+
+func TestStructBytes(t *testing.T) {
+	var structdata = struct {
+		A [3]byte
+		B int16
+		C byte
+	}{
+		[...]byte{1, 1, 2},
+		256,
+		3,
+	}
+
+	buf, err := znlib.StructToBytes(structdata, true)
+	if err != nil {
+		t.Error("znlib.StructToBytes error: ", err)
+	}
+
+	znlib.Info(buf)
+}
