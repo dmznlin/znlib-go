@@ -7,7 +7,7 @@ import (
 )
 
 func TestCircularInt(t *testing.T) {
-	queue := znlib.NewCircularQueue[int](znlib.Circular_FILO, 1)
+	queue := znlib.NewCircularQueue[int](znlib.Circular_FILO, 1, false)
 	queue.Push()                   //nil
 	queue.Push(10, 20, 30, 40, 50) //value list
 
@@ -29,7 +29,7 @@ func TestCircularInt(t *testing.T) {
 }
 
 func TestCircularString(t *testing.T) {
-	queue := znlib.NewCircularQueue[string](znlib.Circular_FIFO_FixSize, 10)
+	queue := znlib.NewCircularQueue[string](znlib.Circular_FIFO_FixSize, 10, false)
 	queue.Push("Hello", "World", "U", "Are", "Welcome") //value list
 
 	num, cap := queue.Size()
@@ -49,7 +49,7 @@ func TestCircularString(t *testing.T) {
 }
 
 func TestCircularWalk(t *testing.T) {
-	queue := znlib.NewCircularQueue[string](znlib.Circular_FILO, 0, 3)
+	queue := znlib.NewCircularQueue[string](znlib.Circular_FILO, 0, false, 3)
 	queue.Push("Hello", "World", "U", "Are", "Welcome") //value list
 
 	queue.Walk(func(idx int, value string, next *bool) {

@@ -13,7 +13,6 @@ package znlib
 
 import (
 	"errors"
-	"sync"
 )
 
 //CircularMode 队列模式
@@ -38,7 +37,7 @@ type circularData[T any] struct {
 
 //CircularQueue 循环队列
 type CircularQueue[T any] struct {
-	lock sync.RWMutex     //同步锁
+	lock RWLocker         //同步锁
 	mode CircularMode     //模式
 	max  int              //最大容量
 	cap  int              //当前容量
@@ -50,13 +49,14 @@ type CircularQueue[T any] struct {
 /*NewCircularQueue 2022-08-24 09:51:40
   参数: mode,队列模式
   参数: cap,初始化大小
+  参数: sync,需要同步锁
   参数: max,最大可容纳
   描述: 生成一个 T 类型的环形队列
 
   调用方法:
   queue := NewCircularQueue[int](Circular_FIFO, 0)
 */
-func NewCircularQueue[T any](mode CircularMode, cap int, max ...int) *CircularQueue[T] {
+func NewCircularQueue[T any](mode CircularMode, cap int, sync bool, max ...int) *CircularQueue[T] {
 	if mode > Circular_FILO_FixSize {
 		panic(errors.New("znlib.NewCircularQueue: invalid mode"))
 	}
@@ -80,6 +80,7 @@ func NewCircularQueue[T any](mode CircularMode, cap int, max ...int) *CircularQu
 		cap:  cap,
 		num:  0,
 		max:  maxNum,
+		lock: RWLocker{Enable: sync},
 	}
 
 	queue.head = &circularData[T]{prior: nil, next: nil}
