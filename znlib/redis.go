@@ -1,4 +1,5 @@
-/*Package znlib ***************************************************************
+// Package znlib
+/******************************************************************************
   作者: dmzn@163.com 2022-08-11 19:50:59
   描述: 支持集群的redis客户端
 ******************************************************************************/
@@ -14,7 +15,7 @@ import (
 	"time"
 )
 
-//redisConfig 配置参数
+// redisConfig 配置参数
 var redisConfig = struct {
 	cluster      bool          //是否集群
 	servers      []string      //服务器列表
@@ -31,14 +32,15 @@ var redisConfig = struct {
 	password: "",
 }
 
-//RedisSingle 单机连接
+// RedisSingle 单机连接
 var RedisSingle *redis.Client = nil
 
-//RedisCluster 集群模式连接
+// RedisCluster 集群模式连接
 var RedisCluster *redis.ClusterClient = nil
 
-/*init_redis 2022-08-12 12:44:13
-  描述: 初始化redis客户端
+// init_redis 2022-08-12 12:44:13
+/*
+ 描述: 初始化redis客户端
 */
 func init_redis() {
 	if len(redisConfig.servers) < 1 {
@@ -81,12 +83,12 @@ func init_redis() {
 
 //-----------------------------------------------------------------------------
 
-//RedisClient 全局redis统一接口
+// RedisClient 全局redis统一接口
 var RedisClient = &redisUtils{
 	Cmdable: nil,
 }
 
-//redisClient redis
+// redisClient redis
 type redisUtils struct {
 	redis.Cmdable //redis操作接口
 }
@@ -97,8 +99,9 @@ type RedisLock struct {
 	err error  //加锁状态
 }
 
-/*Ping 2022-08-12 19:21:09
-  描述: 检测服务器是否正常
+// Ping 2022-08-12 19:21:09
+/*
+ 描述: 检测服务器是否正常
 */
 func (r *redisUtils) Ping() (str string, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -108,11 +111,12 @@ func (r *redisUtils) Ping() (str string, err error) {
 	return str, ErrorMsg(err, "znlib.redis.Ping")
 }
 
-/*Lock 2022-08-12 19:21:29
-  参数: key,锁名称
-  参数: waitfor,等待时长
-  参数: timeout,自动加锁超时
-  描述: 创建名为key、时长为timeout的锁,若无法获取则等待waitfor时长.
+// Lock 2022-08-12 19:21:29
+/*
+ 参数: key,锁名称
+ 参数: waitfor,等待时长
+ 参数: timeout,自动加锁超时
+ 描述: 创建名为key、时长为timeout的锁,若无法获取则等待waitfor时长.
 */
 func (r *redisUtils) Lock(key string, waitfor, timeout time.Duration) *RedisLock {
 	var lock RedisLock
@@ -138,8 +142,9 @@ func (r *redisUtils) Lock(key string, waitfor, timeout time.Duration) *RedisLock
 	return &lock
 }
 
-/*Unlock 2022-08-12 22:53:19
-  描述: 解除锁
+// Unlock 2022-08-12 22:53:19
+/*
+ 描述: 解除锁
 */
 func (r *RedisLock) Unlock() {
 	if r.err == nil && r.tag != "" {

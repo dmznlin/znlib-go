@@ -1,4 +1,5 @@
-/*Package znlib ***************************************************************
+// Package znlib
+/******************************************************************************
   作者: dmzn@163.com 2022-07-15 15:53:40
   描述: 数据库sql相关函数
 
@@ -36,10 +37,11 @@ import (
 	"time"
 )
 
-/*SQLFields 2022-07-15 16:25:23
-  参数: obj,struct结构体
-  参数: exclude,排除字段
-  描述: 拼接字段名
+// SQLFields 2022-07-15 16:25:23
+/*
+ 参数: obj,struct结构体
+ 参数: exclude,排除字段
+ 描述: 拼接字段名
 */
 func SQLFields(obj interface{}, exclude ...string) string {
 	fields, err := StructTagList(obj, "db", true)
@@ -57,10 +59,11 @@ func SQLFields(obj interface{}, exclude ...string) string {
 	}
 }
 
-/*SQLInsert 2022-07-19 19:15:13
-  参数: obj,struct结构体
-  参数: fields,排除的字段 或 包含的字段
-  描述: 使用obj构建insert sql语句
+// SQLInsert 2022-07-19 19:15:13
+/*
+ 参数: obj,struct结构体
+ 参数: fields,排除的字段 或 包含的字段
+ 描述: 使用obj构建insert sql语句
 */
 func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType) (sql string, err error) {
 	defer DeferHandle(false, "znlib.SQLInsert", func(err any) {
@@ -140,12 +143,13 @@ func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType)
 	return sql, nil
 }
 
-/*SQLUpdate 2022-07-20 17:24:20
-  参数: obj,struct结构体
-  参数: where,更新条件(可选空"")
-  参数: getVal,获取字段值(可选nil)
-  参数: DbType,数据库类型(默认不填写)
-  描述: 使用obj构建update sql语句
+// SQLUpdate 2022-07-20 17:24:20
+/*
+ 参数: obj,struct结构体
+ 参数: where,更新条件(可选空"")
+ 参数: getVal,获取字段值(可选nil)
+ 参数: DbType,数据库类型(默认不填写)
+ 描述: 使用obj构建update sql语句
 */
 func SQLUpdate(obj interface{}, where string, getVal GetStructFieldValue, dbType ...SqlDbType) (sql string, err error) {
 	defer DeferHandle(false, "znlib.SQLUpdate", func(err any) {
@@ -225,17 +229,19 @@ type StructFieldValue struct {
 	ExcludeMe   bool        //排除该字段,不参与构建sql
 }
 
-/*GetStructFieldValue 获取field符合sql规范的值
-  参数: field,struct字段数据
-  返回: sqlVal,符合sql规范的值
-  返回: done,是否已成功处理
+// GetStructFieldValue 获取field符合sql规范的值
+/*
+ 参数: field,struct字段数据
+ 返回: sqlVal,符合sql规范的值
+ 返回: done,是否已成功处理
 */
 type GetStructFieldValue = func(field *StructFieldValue) (sqlVal string, done bool)
 
-/*SQLValue 2022-07-19 21:09:13
-  参数: value,数据
-  参数: DbType,db类型
-  描述: 转换value为字符串中的值
+// SQLValue 2022-07-19 21:09:13
+/*
+ 参数: value,数据
+ 参数: DbType,db类型
+ 描述: 转换value为字符串中的值
 */
 func SQLValue(value interface{}, dbType SqlDbType) (val string) {
 	val = ""

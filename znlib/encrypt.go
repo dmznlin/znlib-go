@@ -1,4 +1,5 @@
-/*Package znlib ***************************************************************
+// Package znlib
+/******************************************************************************
   作者: dmzn@163.com 2022-07-26 19:53:28
   描述: 数据加解密、数据编码
 ******************************************************************************/
@@ -10,7 +11,7 @@ import (
 	"github.com/forgoer/openssl"
 )
 
-//EncryptFlag 加密标识
+// EncryptFlag 加密标识
 type EncryptFlag = byte
 
 const (
@@ -37,11 +38,12 @@ type Encrypter struct {
 	Method  EncryptFlag //算法
 }
 
-/*NewEncrypter 2022-07-27 21:25:31
-  参数: method,加密算法
-  参数: key,秘钥
-  参数: padding,填充模式(PKCS5_PADDING,PKCS7_PADDING,ZEROS_PADDING)
-  描述: 生成编码器
+// NewEncrypter 2022-07-27 21:25:31
+/*
+ 参数: method,加密算法
+ 参数: key,秘钥
+ 参数: padding,填充模式(PKCS5_PADDING,PKCS7_PADDING,ZEROS_PADDING)
+ 描述: 生成编码器
 */
 func NewEncrypter(method EncryptFlag, key []byte, padding ...string) *Encrypter {
 	var pad string
@@ -61,20 +63,22 @@ func NewEncrypter(method EncryptFlag, key []byte, padding ...string) *Encrypter 
 	}
 }
 
-/*NewKey 2022-07-27 23:22:37
-  参数: key,秘钥
-  描述: 深层复制秘钥
+// NewKey 2022-07-27 23:22:37
+/*
+ 参数: key,秘钥
+ 描述: 深层复制秘钥
 */
 func (cyp *Encrypter) NewKey(key []byte) {
 	cyp.Key = make([]byte, len(key))
 	copy(cyp.Key, key)
 }
 
-/*Encrypt 2022-07-27 21:25:31
-  参数: data,数据
-  参数: encode,是否base64编码
-  参数: iv,加密向量
-  描述: 数据加密
+// Encrypt 2022-07-27 21:25:31
+/*
+ 参数: data,数据
+ 参数: encode,是否base64编码
+ 参数: iv,加密向量
+ 描述: 数据加密
 */
 func (cyp *Encrypter) Encrypt(data []byte, encode bool, iv ...[]byte) (dst []byte, err error) {
 	var iv_data []byte
@@ -109,11 +113,12 @@ func (cyp *Encrypter) Encrypt(data []byte, encode bool, iv ...[]byte) (dst []byt
 	return
 }
 
-/*Decrypt 2022-07-27 21:25:31
-  参数: data,数据
-  参数: 是否base64编码
-  参数: 加密向量
-  描述: 数据解密
+// Decrypt 2022-07-27 21:25:31
+/*
+ 参数: data,数据
+ 参数: 是否base64编码
+ 参数: 加密向量
+ 描述: 数据解密
 */
 func (cyp *Encrypter) Decrypt(data []byte, encode bool, iv ...[]byte) (dst []byte, err error) {
 	if encode {
@@ -152,9 +157,10 @@ func (cyp *Encrypter) Decrypt(data []byte, encode bool, iv ...[]byte) (dst []byt
 	return
 }
 
-/*EncodeBase64 2022-07-28 11:51:24
-  参数: data,数据
-  描述: base64编码
+// EncodeBase64 2022-07-28 11:51:24
+/*
+ 参数: data,数据
+ 描述: base64编码
 */
 func (cyp *Encrypter) EncodeBase64(data []byte) (dst []byte, err error) {
 	var encoding *base64.Encoding
@@ -172,9 +178,10 @@ func (cyp *Encrypter) EncodeBase64(data []byte) (dst []byte, err error) {
 	return dst, nil
 }
 
-/*DecodeBase64 2022-07-28 11:51:53
-  参数: data,数据
-  描述: base64解码
+// DecodeBase64 2022-07-28 11:51:53
+/*
+ 参数: data,数据
+ 描述: base64解码
 */
 func (cyp *Encrypter) DecodeBase64(data []byte) (dst []byte, err error) {
 	var encoding *base64.Encoding

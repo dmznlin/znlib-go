@@ -1,6 +1,7 @@
-/*Package znlib ***************************************************************
-  作者: dmzn@163.com 2022-07-26 16:04:21
-  描述: 多数据库连接池、嵌套事务
+// Package znlib
+/******************************************************************************
+	作者: dmzn@163.com 2022-07-26 16:04:21
+	描述: 多数据库连接池、嵌套事务
 
 ------------------------ db.ini示例 ------------------------
 [config]
@@ -49,7 +50,6 @@ host=127.0.0.1
 #连接配置(base64)
 dsn=UHJvdmlkZXI9U1FMT0xFREI7SW5pdGlhbCBDYXRhbG9nPVByaW50U2hvcDt1c2VyIGlkPSR1c2
 VyO3Bhc3N3b3JkPSRwd2Q7RGF0YSBTb3VyY2U9JGhvc3Q=
-
 ******************************************************************************/
 package znlib
 
@@ -62,7 +62,7 @@ import (
 	"sync"
 )
 
-//DBConfig 数据库配置项
+// DBConfig 数据库配置项
 type DBConfig struct {
 	Name   string    //数据库名称
 	Type   SqlDbType //数据库类型
@@ -77,7 +77,7 @@ type DBConfig struct {
 	DB      *sqlx.DB //数据库对象
 }
 
-//DbTrans 数据库事务
+// DbTrans 数据库事务
 type DbTrans struct {
 	Db               *sqlx.DB
 	Tx               *sqlx.Tx
@@ -86,7 +86,7 @@ type DbTrans struct {
 	nested           bool
 }
 
-//DbUtils 数据库操作集合
+// DbUtils 数据库操作集合
 type DbUtils struct {
 	sync        sync.RWMutex         //数据库同步锁定
 	EncryptKey  string               //加密秘钥
@@ -95,7 +95,7 @@ type DbUtils struct {
 	DBList      map[string]*DBConfig //多数据库配置,k:数据库名称
 }
 
-//DBManager 全局数据库管理器
+// DBManager 全局数据库管理器
 var DBManager = DbUtils{
 	EncryptKey:  DefaultEncryptKey,
 	DefaultName: "",
@@ -103,16 +103,18 @@ var DBManager = DbUtils{
 	DBList:      make(map[string]*DBConfig),
 }
 
-/*init_db 2022-07-26 16:33:53
-  描述: 初始化数据库配置
+// init_db 2022-07-26 16:33:53
+/*
+ 描述: 初始化数据库配置
 */
 func init_db() {
 	DBManager.LoadConfig()
 }
 
-/*LoadConfig 2022-08-02 21:48:53
-  参数: file,配置文件
-  描述: 读取数据库配置
+// LoadConfig 2022-08-02 21:48:53
+/*
+ 参数: file,配置文件
+ 描述: 读取数据库配置
 */
 func (dm *DbUtils) LoadConfig(file ...string) (err error) {
 	var ini *iniFile.File
@@ -224,9 +226,10 @@ func (dm *DbUtils) LoadConfig(file ...string) (err error) {
 	}
 }
 
-/*GetDB 2022-07-28 18:18:44
-  参数: dbname,数据库名称
-  描述: 获取指定数据库连接对象
+// GetDB 2022-07-28 18:18:44
+/*
+ 参数: dbname,数据库名称
+ 描述: 获取指定数据库连接对象
 */
 func (dm DbUtils) GetDB(dbname string) (db *sqlx.DB, err error) {
 	cfg, ok := dm.DBList[dbname]
@@ -257,8 +260,9 @@ func (dm DbUtils) GetDB(dbname string) (db *sqlx.DB, err error) {
 	return
 }
 
-/*ApplyDSN 2022-08-03 12:57:02
-  描述: 更新dsn中的变量值
+// ApplyDSN 2022-08-03 12:57:02
+/*
+ 描述: 更新dsn中的变量值
 */
 func (dc *DBConfig) ApplyDSN() {
 	dc.DSN = StrReplace(dc.DSN, dc.User, "$user")
@@ -267,10 +271,11 @@ func (dc *DBConfig) ApplyDSN() {
 	dc.DSN = StrReplace(dc.DSN, Application.ExePath, "$path\\", "$path/", "$path")
 }
 
-/*UpdateDSN 2022-08-03 13:17:26
-  参数: dbname,数据库名称
-  参数: dsn,新的连接配置
-  描述:
+// UpdateDSN 2022-08-03 13:17:26
+/*
+ 参数: dbname,数据库名称
+ 参数: dsn,新的连接配置
+ 描述:
 */
 func (dm DbUtils) UpdateDSN(dbname, dsn string) (e error) {
 	cfg, ok := dm.DBList[dbname]

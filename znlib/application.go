@@ -1,4 +1,5 @@
-/*Package znlib **************************************************************
+// Package znlib
+/******************************************************************************
 作者: dmzn@163.com 2022-05-30 13:35:38
 描述: 系统常量、变量、函数等
 ******************************************************************************/
@@ -20,7 +21,7 @@ import (
 	"time"
 )
 
-//application相关属性
+// application相关属性
 type application struct {
 	ExeName    string //exe full
 	ExePath    string //exe所在路径
@@ -52,17 +53,19 @@ var (
 	PathSeparator = "/"
 )
 
-/*OSName 2022-05-30 13:14:24
-  描述: 获取当前系统名称
+// OSName 2022-05-30 13:14:24
+/*
+ 描述: 获取当前系统名称
 */
 func OSName() string {
 	return runtime.GOOS
 }
 
-/*FileExists 2022-05-30 13:24:34
-  参数: file,路径
-  参数: isDir,是否文件夹
-  描述: 判断file是否能存在
+// FileExists 2022-05-30 13:24:34
+/*
+ 参数: file,路径
+ 参数: isDir,是否文件夹
+ 描述: 判断file是否能存在
 */
 func FileExists(file string, isDir bool) bool {
 	info, err := os.Stat(file)
@@ -79,9 +82,10 @@ func FileExists(file string, isDir bool) bool {
 	}
 }
 
-/*FixPath 2022-05-30 13:08:42
-  参数: dir,文件夹路径
-  描述: 若dir末尾没有分隔符,则添加
+// FixPath 2022-05-30 13:08:42
+/*
+ 参数: dir,文件夹路径
+ 描述: 若dir末尾没有分隔符,则添加
 */
 func FixPath(dir string) string {
 	l := len(dir) - 1
@@ -96,9 +100,10 @@ func FixPath(dir string) string {
 	}
 }
 
-/*MakeDir 2022-05-30 13:09:23
-  参数: 件夹路径
-  描述: 创建dir目录
+// MakeDir 2022-05-30 13:09:23
+/*
+ 参数: 件夹路径
+ 描述: 创建dir目录
 */
 func MakeDir(dir string) {
 	defer DeferHandle(false, "znlib.MakeDir")
@@ -111,11 +116,12 @@ func MakeDir(dir string) {
 
 //--------------------------------------------------------------------------------
 
-/*DeferHandle 2022-05-30 13:12:31
-  参数: throw,重新抛出异常
-  参数: caller,调用者名称
-  参数: cb,回调函数
-  描述: 用于defer默认调用
+// DeferHandle 2022-05-30 13:12:31
+/*
+ 参数: throw,重新抛出异常
+ 参数: caller,调用者名称
+ 参数: cb,回调函数
+ 描述: 用于defer默认调用
 */
 func DeferHandle(throw bool, caller string, cb ...func(err any)) {
 	err := recover()
@@ -136,10 +142,11 @@ func DeferHandle(throw bool, caller string, cb ...func(err any)) {
 	}
 }
 
-/*ErrorPanic 2022-07-07 12:40:42
-  参数: err,异常
-  参数: message,描述信息
-  描述: 抛出带描述信息的异常
+// ErrorPanic 2022-07-07 12:40:42
+/*
+ 参数: err,异常
+ 参数: message,描述信息
+ 描述: 抛出带描述信息的异常
 */
 func ErrorPanic(err error, message ...string) {
 	if message == nil {
@@ -153,11 +160,12 @@ func ErrorPanic(err error, message ...string) {
 	}
 }
 
-/*ErrorMsg 2022-08-12 15:53:48
-  参数: err,异常
-  参数: msg,消息
-  参数: newone,是否自动生成
-  描述: 生成一个携带err+msg的异常对象
+// ErrorMsg 2022-08-12 15:53:48
+/*
+ 参数: err,异常
+ 参数: msg,消息
+ 参数: newone,是否自动生成
+ 描述: 生成一个携带err+msg的异常对象
 */
 func ErrorMsg(err error, msg string, newone ...bool) error {
 	if err == nil {
@@ -171,16 +179,17 @@ func ErrorMsg(err error, msg string, newone ...bool) error {
 	}
 }
 
-//TryFinal 模拟delhpi的try...finally机制
+// TryFinal 模拟delhpi的try...finally机制
 type TryFinal struct {
 	Try     func() (err error) //业务函数
 	Finally func()             //强制执行(一定执行)函数
 	Except  func(err error)    //异常处理函数
 }
 
-/*Run 2022-07-20 13:03:01
-  返回: error,异常
-  描述: 执行业务,返回false时应该退出业务.
+// Run 2022-07-20 13:03:01
+/*
+ 返回: error,异常
+ 描述: 执行业务,返回false时应该退出业务.
 */
 func (tf TryFinal) Run() (err error) {
 	if tf.Finally != nil { //run last
@@ -212,9 +221,10 @@ func (tf TryFinal) Run() (err error) {
 	return
 }
 
-/*WaitSystemExit 2022-06-08 15:24:34
-  参数: cw,清理函数
-  描述: 捕捉操作系统关闭信号,执行清理后退出
+// WaitSystemExit 2022-06-08 15:24:34
+/*
+ 参数: cw,清理函数
+ 描述: 捕捉操作系统关闭信号,执行清理后退出
 */
 func WaitSystemExit(cw ...func() error) {
 	// 程序无法捕获信号 SIGKILL 和 SIGSTOP （终止和暂停进程），因此 os/signal 包对这两个信号无效。
@@ -243,8 +253,9 @@ func WaitSystemExit(cw ...func() error) {
 
 //--------------------------------------------------------------------------------
 
-/*initApp 2022-05-30 14:01:55
-  描述: 初始化系统运行环境
+// initApp 2022-05-30 14:01:55
+/*
+ 描述: 初始化系统运行环境
 */
 func initApp() {
 	rand.Seed(time.Now().UnixNano())

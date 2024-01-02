@@ -1,11 +1,12 @@
-/*Package znlib ***************************************************************
+// Package znlib
+/******************************************************************************
   作者: dmzn@163.com 2022-08-24 09:43:32
   描述: 支持FIFO、FILO的循环队列
 
   *.队列底层数据为双向链表,头尾闭合成环:
-	 <==> data <==> head <==> data <==> data <==> data
-	 ||											   ||
-	 |<== data <==>  data <==> tail <==> data <==> ||
+  	 <==> data <==> head <==> data <==> data <==> data
+  	 ||											   ||
+  	 |<== data <==>  data <==> tail <==> data <==> ||
   添加数据时: next顺时针
   读取数据时: FIFO为next顺时针,FILO为prior逆时针
 ******************************************************************************/
@@ -15,7 +16,7 @@ import (
 	"errors"
 )
 
-//CircularMode 队列模式
+// CircularMode 队列模式
 type CircularMode int8
 
 const (
@@ -25,17 +26,17 @@ const (
 	Circular_FILO_FixSize                     //固定大小栈,旧数据被覆盖
 )
 
-//CircularMaxCap 队列最大容量
+// CircularMaxCap 队列最大容量
 var CircularMaxCap = 1024
 
-//circularItem 循环队列中的数据项
+// circularItem 循环队列中的数据项
 type circularData[T any] struct {
 	data  T                //数据
 	prior *circularData[T] //前项
 	next  *circularData[T] //后项
 }
 
-//CircularQueue 循环队列
+// CircularQueue 循环队列
 type CircularQueue[T any] struct {
 	lock RWLocker         //同步锁
 	mode CircularMode     //模式
@@ -46,15 +47,16 @@ type CircularQueue[T any] struct {
 	tail *circularData[T] //队尾数据
 }
 
-/*NewCircularQueue 2022-08-24 09:51:40
-  参数: mode,队列模式
-  参数: cap,初始化大小
-  参数: sync,需要同步锁
-  参数: max,最大可容纳
-  描述: 生成一个 T 类型的环形队列
+// NewCircularQueue 2022-08-24 09:51:40
+/*
+ 参数: mode,队列模式
+ 参数: cap,初始化大小
+ 参数: sync,需要同步锁
+ 参数: max,最大可容纳
+ 描述: 生成一个 T 类型的环形队列
 
-  调用方法:
-  queue := NewCircularQueue[int](Circular_FIFO, 0)
+ 调用方法:
+ queue := NewCircularQueue[int](Circular_FIFO, 0)
 */
 func NewCircularQueue[T any](mode CircularMode, cap int, sync bool, max ...int) *CircularQueue[T] {
 	if mode > Circular_FILO_FixSize {
@@ -97,9 +99,10 @@ func NewCircularQueue[T any](mode CircularMode, cap int, sync bool, max ...int) 
 	return &queue
 }
 
-/*Push 2022-08-24 09:57:39
-  参数: values,值列表
-  描述: 添加一组值到队列中
+// Push 2022-08-24 09:57:39
+/*
+ 参数: values,值列表
+ 描述: 添加一组值到队列中
 */
 func (cq *CircularQueue[T]) Push(values ...T) error {
 	if values == nil { //empty
@@ -144,9 +147,10 @@ func (cq *CircularQueue[T]) Push(values ...T) error {
 	return nil
 }
 
-/*Pop 2022-08-24 12:06:12
-  参数: def,默认值
-  描述: 取出队列中的值,若不存在则返回默认
+// Pop 2022-08-24 12:06:12
+/*
+ 参数: def,默认值
+ 描述: 取出队列中的值,若不存在则返回默认
 */
 func (cq *CircularQueue[T]) Pop(def T) (value T, ok bool) {
 	cq.lock.Lock()
@@ -178,9 +182,10 @@ func (cq *CircularQueue[T]) Pop(def T) (value T, ok bool) {
 	return value, ok
 }
 
-/*MPop 2022-08-24 14:12:35
-  参数: num,个数
-  描述: 取出多个元素
+// MPop 2022-08-24 14:12:35
+/*
+ 参数: num,个数
+ 描述: 取出多个元素
 */
 func (cq *CircularQueue[T]) MPop(num int) (values []T) {
 	cq.lock.Lock()
@@ -225,32 +230,34 @@ func (cq *CircularQueue[T]) MPop(num int) (values []T) {
 	return values[:idx]
 }
 
-/*Size 2022-08-24 14:09:27
-  返回: num,有效元素个数
-  返回: cap,队列容量
-  描述: 返回队列容量和元素个数
+// Size 2022-08-24 14:09:27
+/*
+ 返回: num,有效元素个数
+ 返回: cap,队列容量
+ 描述: 返回队列容量和元素个数
 */
 func (cq *CircularQueue[T]) Size() (num, cap int) {
 	return cq.num, cq.cap
 }
 
-/*Walk 2022-08-24 15:44:14
-  参数: walk,遍历函数
-  描述: 遍历队列中的元素
+// Walk 2022-08-24 15:44:14
+/*
+ 参数: walk,遍历函数
+ 描述: 遍历队列中的元素
 
-  walk func:
-  参数: idx,元素索引
-  参数: value,元素值
-  参数: next,是否继续遍历
+ walk func:
+ 参数: idx,元素索引
+ 参数: value,元素值
+ 参数: next,是否继续遍历
 
-  例子:
-  queue := NewCircularQueue[string](znlib.Circular_FILO, 0, 3)
-  queue.Push("Hello", "World", "U", "Are", "Welcome") //value list
+ 例子:
+ queue := NewCircularQueue[string](znlib.Circular_FILO, 0, 3)
+ queue.Push("Hello", "World", "U", "Are", "Welcome") //value list
 
-  queue.Walk(func(idx int, value string, next *bool) {
-  	t.Logf("walk val: %d,%s", idx, value)
-  	*next = value != "U"
-  })
+ queue.Walk(func(idx int, value string, next *bool) {
+   t.Logf("walk val: %d,%s", idx, value)
+   *next = value != "U"
+ })
 */
 func (cq *CircularQueue[T]) Walk(walk func(idx int, value T, next *bool)) {
 	cq.lock.RLock()

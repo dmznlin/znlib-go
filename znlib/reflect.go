@@ -1,4 +1,5 @@
-/*Package znlib ***************************************************************
+// Package znlib
+/******************************************************************************
   作者: dmzn@163.com 2022-07-17 16:55:03
   描述: 反射相关操作
 ******************************************************************************/
@@ -15,10 +16,11 @@ import (
 	"sync"
 )
 
-/*IsIn 2022-07-17 17:25:38
-  参数: val,值
-  参数: array,数据
-  描述: 判断val是否在array中,返回索引
+// IsIn 2022-07-17 17:25:38
+/*
+ 参数: val,值
+ 参数: array,数据
+ 描述: 判断val是否在array中,返回索引
 */
 func IsIn(val interface{}, array interface{}) int {
 	switch reflect.TypeOf(array).Kind() {
@@ -34,9 +36,10 @@ func IsIn(val interface{}, array interface{}) int {
 	return -1
 }
 
-/*IsNil 2022-07-17 16:56:52
-  参数: val,值
-  描述: 判断val是否为空
+// IsNil 2022-07-17 16:56:52
+/*
+ 参数: val,值
+ 描述: 判断val是否为空
 */
 func IsNil(val interface{}) bool {
 	if val == nil {
@@ -53,10 +56,11 @@ func IsNil(val interface{}) bool {
 	}
 }
 
-/*Equal 2022-07-17 17:06:11
-  参数: a,字节数组
-  参数: b,字节数组
-  描述: whether a and b are the same length and contain the same bytes
+// Equal 2022-07-17 17:06:11
+/*
+ 参数: a,字节数组
+ 参数: b,字节数组
+ 描述: whether a and b are the same length and contain the same bytes
 */
 func Equal(a, b interface{}) bool {
 	if a == nil {
@@ -75,11 +79,12 @@ func Equal(a, b interface{}) bool {
 	return reflect.DeepEqual(a, b)
 }
 
-/*ValueCompare 2022-07-17 19:05:58
-  参数: a,数值
-  参数: b,数值
-  参数: relation,比较关系
-  描述: 比较a、b的关系(大于 等于 小于...)
+// ValueCompare 2022-07-17 19:05:58
+/*
+ 参数: a,数值
+ 参数: b,数值
+ 参数: relation,比较关系
+ 描述: 比较a、b的关系(大于 等于 小于...)
 */
 func ValueCompare(a, b interface{}, relation ValueRelation) (ok bool) {
 	var va, vb decimal.Decimal
@@ -109,9 +114,10 @@ func ValueCompare(a, b interface{}, relation ValueRelation) (ok bool) {
 	}
 }
 
-/*ValueToDecimal 2022-07-17 23:34:54
-  参数: val,数值
-  描述: 将val转为浮点数
+// ValueToDecimal 2022-07-17 23:34:54
+/*
+ 参数: val,数值
+ 描述: 将val转为浮点数
 */
 func ValueToDecimal(val interface{}) (decimal.Decimal, bool) {
 	switch val.(type) {
@@ -142,10 +148,11 @@ func ValueToDecimal(val interface{}) (decimal.Decimal, bool) {
 	return decimal.Zero, false
 }
 
-/*IsNumber 2022-07-17 23:15:52
-  参数: str,字符串
-  参数: isfloat,是否为浮点数
-  描述: 判断str是否为数值
+// IsNumber 2022-07-17 23:15:52
+/*
+ 参数: str,字符串
+ 参数: isfloat,是否为浮点数
+ 描述: 判断str是否为数值
 */
 func IsNumber(str string, isfloat ...bool) (decimal.Decimal, bool) {
 	val, err := decimal.NewFromString(str)
@@ -160,9 +167,10 @@ func IsNumber(str string, isfloat ...bool) (decimal.Decimal, bool) {
 	}
 }
 
-/*ReflectValue 2022-07-19 11:12:17
-  参数: obj,对象
-  描述: 返回obj的Value反射数据
+// ReflectValue 2022-07-19 11:12:17
+/*
+ 参数: obj,对象
+ 描述: 返回obj的Value反射数据
 */
 func ReflectValue(obj interface{}) reflect.Value {
 	var val reflect.Value = reflect.ValueOf(obj)
@@ -173,19 +181,21 @@ func ReflectValue(obj interface{}) reflect.Value {
 	}
 }
 
-/*StructFieldsWalker 结构体步进函数
-  参数: field,struct字段
-  参数: value,struct字段数据
-  参数: level,遍历层级,从1开始
-  返回: next,是否进行更深层处理;err,是否有异常
+// StructFieldsWalker 结构体步进函数
+/*
+ 参数: field,struct字段
+ 参数: value,struct字段数据
+ 参数: level,遍历层级,从1开始
+ 返回: next,是否进行更深层处理;err,是否有异常
 */
 type StructFieldsWalker = func(field reflect.StructField, value reflect.Value, level int) (next bool, err error)
 
-/*WalkStruct 2022-07-19 11:23:14
-  参数: obj,对象
-  参数: sw,步进函数
-  参数: level,当前层级(默认不传)
-  描述: 检索obj的所有字段,并使用sw处理每个字段
+// WalkStruct 2022-07-19 11:23:14
+/*
+ 参数: obj,对象
+ 参数: sw,步进函数
+ 参数: level,当前层级(默认不传)
+ 描述: 检索obj的所有字段,并使用sw处理每个字段
 */
 func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
 	var curentLevel int = 1
@@ -248,11 +258,12 @@ var structTagsBuffer = struct {
 	buffer: make([]structTags, 0),
 }
 
-/*getStructTags 2022-07-20 13:42:27
-  参数: objType,对象类型
-  参数: key,tag名
-  参数: lock,是否锁定
-  描述: 从缓存中检索类型为objType,tag名为key的索引
+// getStructTags 2022-07-20 13:42:27
+/*
+ 参数: objType,对象类型
+ 参数: key,tag名
+ 参数: lock,是否锁定
+ 描述: 从缓存中检索类型为objType,tag名为key的索引
 */
 func getStructTags(objType reflect.Type, key string, lock bool) (idx int) {
 	if lock {
@@ -275,11 +286,12 @@ func getStructTags(objType reflect.Type, key string, lock bool) (idx int) {
 	return -1
 }
 
-/*setStructTags 2022-07-20 14:03:49
-  参数: obj,对象
-  参数: tags,缓存对象
-  参数: deep,是否检索全部层级
-  描述: 将obj中tag匹配的值存入tags缓存中
+// setStructTags 2022-07-20 14:03:49
+/*
+ 参数: obj,对象
+ 参数: tags,缓存对象
+ 参数: deep,是否检索全部层级
+ 描述: 将obj中tag匹配的值存入tags缓存中
 */
 func setStructTags(obj interface{}, tags *structTags, deep bool) error {
 	var tag string
@@ -314,11 +326,12 @@ func setStructTags(obj interface{}, tags *structTags, deep bool) error {
 	return err
 }
 
-/*StructTags 2022-07-19 12:34:35
-  参数: obj,对象
-  参数: key,Tag名
-  参数: deep,是否检索全部层级
-  描述: 获取obj包含key的字段名和tag值
+// StructTags 2022-07-19 12:34:35
+/*
+ 参数: obj,对象
+ 参数: key,Tag名
+ 参数: deep,是否检索全部层级
+ 描述: 获取obj包含key的字段名和tag值
 */
 func StructTags(obj interface{}, key string, deep bool) (map[string]string, error) {
 	objType := ReflectValue(obj).Type()
@@ -339,11 +352,12 @@ func StructTags(obj interface{}, key string, deep bool) (map[string]string, erro
 	return nTags.tags, err
 }
 
-/*StructTagList 2022-07-20 14:08:20
-  参数: obj,对象
-  参数: key,Tag名
-  参数: deep,是否检索全部层级
-  描述: 获取obj包含key的tag值列表,按obj字段的先后顺序排列
+// StructTagList 2022-07-20 14:08:20
+/*
+ 参数: obj,对象
+ 参数: key,Tag名
+ 参数: deep,是否检索全部层级
+ 描述: 获取obj包含key的tag值列表,按obj字段的先后顺序排列
 */
 func StructTagList(obj interface{}, key string, deep bool) ([]string, error) {
 	objType := ReflectValue(obj).Type()
@@ -364,16 +378,17 @@ func StructTagList(obj interface{}, key string, deep bool) ([]string, error) {
 	return nTags.tagArray, err
 }
 
-/*StructToBytes 2022-10-19 11:13:51
-  参数: obj,对象
-  参数: nBigEndian,大端模式
-  参数: key,Tag名
-  描述: 将obj转为网络字节流
+// StructToBytes 2022-10-19 11:13:51
+/*
+ 参数: obj,对象
+ 参数: nBigEndian,大端模式
+ 参数: key,Tag名
+ 描述: 将obj转为网络字节流
 
-encoding/binary 不能用于编码大小不固定的任意值,所以结构体的字段需要"固定大小".如果您删除string字段并将int字段更改为int32,它将起作用.
-引用 binary.Write() :
-Write writes the binary representation of data into w. Data must be a fixed-size value or a slice of fixed-size values,
-or a pointer to such data.
+ encoding/binary 不能用于编码大小不固定的任意值,所以结构体的字段需要"固定大小".如果您删除string字段并将int字段更改为int32,它将起作用.
+ 引用 binary.Write() :
+ Write writes the binary representation of data into w. Data must be a fixed-size value or a slice of fixed-size values,
+ or a pointer to such data.
 */
 func StructToBytes(obj interface{}, nBigEndian bool, key ...string) (data []byte, err error) {
 	var buf = new(bytes.Buffer)
@@ -406,11 +421,12 @@ func StructToBytes(obj interface{}, nBigEndian bool, key ...string) (data []byte
 	return buf.Bytes(), err
 }
 
-/*StructFromBytes 2022-10-29 09:25:07
-  参数: obj,对象指针
-  参数: data,字节数据
-  参数: nBigEndian,大端模式
-  描述: 将data赋值给obj对象
+// StructFromBytes 2022-10-29 09:25:07
+/*
+ 参数: obj,对象指针
+ 参数: data,字节数据
+ 参数: nBigEndian,大端模式
+ 描述: 将data赋值给obj对象
 */
 func StructFromBytes(obj interface{}, data []byte, nBigEndian bool) (err error) {
 	buf := bytes.NewReader(data)

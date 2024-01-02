@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-//znlib初始化
+// znlib初始化
 var _ = InitLib(func() {
 	AppPath = `D:\Program Files\MyVCL\go\znlib-go\main\bin`
 }, nil)

@@ -1,4 +1,5 @@
-/*Package znlib ***************************************************************
+// Package znlib
+/******************************************************************************
   作者: dmzn@163.com 2022-08-19 09:25:21
   描述: 事件总线
 
@@ -14,22 +15,23 @@ import (
 	"sync"
 )
 
-//EventBus 总线实现
+// EventBus 总线实现
 type EventBus struct {
 	handlers map[string][]*eventHandler
 	lock     sync.RWMutex
 	rg       *RoutineGroup
 }
 
-//eventHandler 事件句柄
+// eventHandler 事件句柄
 type eventHandler struct {
 	callBack reflect.Value //回调函数
 	flagOnce bool          //单次调用标识
 	async    bool          //异步调用标识
 }
 
-/*NewEventBus 2022-08-19 16:49:26
-  描述: 生成事件总线
+// NewEventBus 2022-08-19 16:49:26
+/*
+ 描述: 生成事件总线
 */
 func NewEventBus() *EventBus {
 	return &EventBus{
@@ -38,11 +40,12 @@ func NewEventBus() *EventBus {
 	}
 }
 
-/*doSubscribe 2022-08-19 13:39:26
-  参数: topic,主题
-  参数: fn,函数
-  参数: handler,事件句柄
-  描述: 为topic注册fn处理函数
+// doSubscribe 2022-08-19 13:39:26
+/*
+ 参数: topic,主题
+ 参数: fn,函数
+ 参数: handler,事件句柄
+ 描述: 为topic注册fn处理函数
 */
 func (bus *EventBus) doSubscribe(topic string, fn interface{}, handler *eventHandler) error {
 	if !(reflect.TypeOf(fn).Kind() == reflect.Func) {
@@ -100,10 +103,11 @@ func (bus *EventBus) HasCallback(topic string) bool {
 	}
 }
 
-/*Unsubscribe 2022-08-20 18:53:04
-  参数: topic,主题
-  参数: fn,函数
-  描述: 删除topic主题中的fn函数
+// Unsubscribe 2022-08-20 18:53:04
+/*
+ 参数: topic,主题
+ 参数: fn,函数
+ 描述: 删除topic主题中的fn函数
 */
 func (bus *EventBus) Unsubscribe(topic string, fn ...interface{}) error {
 	bus.lock.Lock()
@@ -121,10 +125,11 @@ func (bus *EventBus) Unsubscribe(topic string, fn ...interface{}) error {
 	}
 }
 
-/*Publish 2022-08-19 13:36:54
-  参数: topic,主题
-  参数: args,参数
-  描述: Publish executes callback defined for a topic
+// Publish 2022-08-19 13:36:54
+/*
+ 参数: topic,主题
+ 参数: args,参数
+ 描述: Publish executes callback defined for a topic
 */
 func (bus *EventBus) Publish(topic string, args ...interface{}) {
 	var onceList []*eventHandler = nil
@@ -168,10 +173,11 @@ func (bus *EventBus) Publish(topic string, args ...interface{}) {
 	}
 }
 
-/*doPublish 2022-08-19 13:11:11
-  参数: handler,事件句柄
-  参数: args,参数列表
-  描述: 使用args调用handler
+// doPublish 2022-08-19 13:11:11
+/*
+ 参数: handler,事件句柄
+ 参数: args,参数列表
+ 描述: 使用args调用handler
 */
 func (bus *EventBus) doPublish(handler *eventHandler, args ...interface{}) {
 	typ := handler.callBack.Type()
@@ -190,11 +196,12 @@ func (bus *EventBus) doPublish(handler *eventHandler, args ...interface{}) {
 	//call
 }
 
-/*deleteHandler 2022-08-19 12:05:27
-  参数: topic,主题名称
-  参数: toDel,待删除句柄
-  参数: fn,待删除方法
-  描述: 删除topic主题指定的handler
+// deleteHandler 2022-08-19 12:05:27
+/*
+ 参数: topic,主题名称
+ 参数: toDel,待删除句柄
+ 参数: fn,待删除方法
+ 描述: 删除topic主题指定的handler
 */
 func (bus *EventBus) deleteHandler(topic string, toDel []*eventHandler, fn ...interface{}) error {
 	if len(toDel) < 1 && fn == nil {
@@ -249,8 +256,9 @@ func (bus *EventBus) deleteHandler(topic string, toDel []*eventHandler, fn ...in
 	return nil
 }
 
-/*WaitAsync 2022-08-19 17:01:57
-  描述: waits for all async callbacks to complete
+// WaitAsync 2022-08-19 17:01:57
+/*
+ 描述: waits for all async callbacks to complete
 */
 func (bus *EventBus) WaitAsync() {
 	bus.rg.Wait()

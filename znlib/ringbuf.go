@@ -1,4 +1,5 @@
-/*Package znlib ***************************************************************
+// Package znlib
+/******************************************************************************
   作者: dmzn@163.com 2022-10-29 16:17:47
   描述: 自动扩容的循环缓冲区
 
@@ -14,10 +15,10 @@ import (
 	"unsafe"
 )
 
-//ErrRingBufEmpty 缓冲区为空
+// ErrRingBufEmpty 缓冲区为空
 var ErrRingBufEmpty = errors.New("znlib.RingBuffer: buffer is empty")
 
-//RingBuffer 自动扩容循环缓冲区
+// RingBuffer 自动扩容循环缓冲区
 type RingBuffer struct {
 	RWLocker        //同步锁定
 	buf      []byte //缓冲区
@@ -29,10 +30,11 @@ type RingBuffer struct {
 	isEmpty  bool   //是否为空
 }
 
-/*NewRingBuffer 2022-10-29 17:12:12
-  参数: size,
-  参数: sync,
-  描述: 初始RingBuffer缓冲区
+// NewRingBuffer 2022-10-29 17:12:12
+/*
+ 参数: size,
+ 参数: sync,
+ 描述: 初始RingBuffer缓冲区
 */
 func NewRingBuffer(size int, sync bool) *RingBuffer {
 	return &RingBuffer{
@@ -44,9 +46,10 @@ func NewRingBuffer(size int, sync bool) *RingBuffer {
 	}
 }
 
-/*WithData 2022-10-29 17:16:24
-  参数: data,切片数据
-  描述: 将data转化为循环缓冲
+// WithData 2022-10-29 17:16:24
+/*
+ 参数: data,切片数据
+ 描述: 将data转化为循环缓冲
 */
 func (rb *RingBuffer) WithData(data []byte) {
 	rb.r = 0
@@ -58,8 +61,9 @@ func (rb *RingBuffer) WithData(data []byte) {
 	rb.buf = data
 }
 
-/*VirtualFlush 2022-10-29 17:18:38
-  描述: 刷新虚读指针,使其与读指针同步
+// VirtualFlush 2022-10-29 17:18:38
+/*
+ 描述: 刷新虚读指针,使其与读指针同步
 */
 func (rb *RingBuffer) VirtualFlush() {
 	rb.r = rb.vr
@@ -68,17 +72,19 @@ func (rb *RingBuffer) VirtualFlush() {
 	}
 }
 
-/*VirtualRevert 2022-10-29 17:19:32
-  描述: 还原虚读指针,使其与读指针同步
+// VirtualRevert 2022-10-29 17:19:32
+/*
+ 描述: 还原虚读指针,使其与读指针同步
 */
 func (rb *RingBuffer) VirtualRevert() {
 	rb.vr = rb.r
 }
 
-/*VirtualRead 2022-10-29 17:21:05
-  参数: data,数据缓存
-  描述: 虚读数据到data中,长度为data空间大小
-  备注: 不移动 read 指针，需要配合 VirtualFlush 和 VirtualRevert 使用
+// VirtualRead 2022-10-29 17:21:05
+/*
+ 参数: data,数据缓存
+ 描述: 虚读数据到data中,长度为data空间大小
+ 备注: 不移动 read 指针，需要配合 VirtualFlush 和 VirtualRevert 使用
 */
 func (rb *RingBuffer) VirtualRead(data []byte) (n int, err error) {
 	if len(data) == 0 {
@@ -123,8 +129,9 @@ func (rb *RingBuffer) VirtualRead(data []byte) (n int, err error) {
 	return
 }
 
-/*VirtualLength 2022-10-29 17:26:06
-  描述: 虚拟长度，虚读后剩余可读数据长度
+// VirtualLength 2022-10-29 17:26:06
+/*
+ 描述: 虚拟长度，虚读后剩余可读数据长度
 */
 func (rb *RingBuffer) VirtualLength() int {
 	if rb.w == rb.vr {
@@ -141,8 +148,9 @@ func (rb *RingBuffer) VirtualLength() int {
 	return rb.size - rb.vr + rb.w
 }
 
-/*RetrieveAll 2022-10-29 17:32:54
-  描述: 回收所有缓存空间
+// RetrieveAll 2022-10-29 17:32:54
+/*
+ 描述: 回收所有缓存空间
 */
 func (rb *RingBuffer) RetrieveAll() {
 	rb.r = 0
@@ -151,9 +159,10 @@ func (rb *RingBuffer) RetrieveAll() {
 	rb.isEmpty = true
 }
 
-/*Retrieve 2022-10-29 17:33:12
-  参数: len,回收大小
-  描述: 回收长度为len的缓存空间
+// Retrieve 2022-10-29 17:33:12
+/*
+ 参数: len,回收大小
+ 描述: 回收长度为len的缓存空间
 */
 func (rb *RingBuffer) Retrieve(len int) {
 	if rb.isEmpty || len <= 0 {
@@ -172,9 +181,10 @@ func (rb *RingBuffer) Retrieve(len int) {
 	}
 }
 
-/*Peek 2022-10-29 17:35:59
-  参数: len,长度
-  描述: 读取len个字节的数据
+// Peek 2022-10-29 17:35:59
+/*
+ 参数: len,长度
+ 描述: 读取len个字节的数据
 */
 func (rb *RingBuffer) Peek(len int) (first []byte, end []byte) {
 	if rb.isEmpty || len <= 0 {
@@ -205,8 +215,9 @@ func (rb *RingBuffer) Peek(len int) (first []byte, end []byte) {
 	return
 }
 
-/*PeekAll 2022-10-31 16:53:00
-  描述: 读取所有数据
+// PeekAll 2022-10-31 16:53:00
+/*
+ 描述: 读取所有数据
 */
 func (rb *RingBuffer) PeekAll() (first []byte, end []byte) {
 	if rb.isEmpty {
@@ -223,8 +234,9 @@ func (rb *RingBuffer) PeekAll() (first []byte, end []byte) {
 	return
 }
 
-/*PeekUint8 2022-10-31 16:53:54
-  描述: 读取 uint8 类型的数据
+// PeekUint8 2022-10-31 16:53:54
+/*
+ 描述: 读取 uint8 类型的数据
 */
 func (rb *RingBuffer) PeekUint8() uint8 {
 	if rb.Length() < 1 {
@@ -239,8 +251,9 @@ func (rb *RingBuffer) PeekUint8() uint8 {
 	}
 }
 
-/*PeekUint16 2022-10-31 16:54:19
-  描述: 读取 uint16 类型的数据
+// PeekUint16 2022-10-31 16:54:19
+/*
+ 描述: 读取 uint16 类型的数据
 */
 func (rb *RingBuffer) PeekUint16() uint16 {
 	if rb.Length() < 2 {
@@ -255,8 +268,9 @@ func (rb *RingBuffer) PeekUint16() uint16 {
 	}
 }
 
-/*PeekUint32 2022-10-31 16:56:57
-  描述: 读取 uint32 类型的数据
+// PeekUint32 2022-10-31 16:56:57
+/*
+ 描述: 读取 uint32 类型的数据
 */
 func (rb *RingBuffer) PeekUint32() uint32 {
 	if rb.Length() < 4 {
@@ -271,8 +285,9 @@ func (rb *RingBuffer) PeekUint32() uint32 {
 	}
 }
 
-/*PeekUint64 2022-10-31 16:58:00
-  描述: 读取 uint64 类型的数据
+// PeekUint64 2022-10-31 16:58:00
+/*
+ 描述: 读取 uint64 类型的数据
 */
 func (rb *RingBuffer) PeekUint64() uint64 {
 	if rb.Length() < 8 {
@@ -287,9 +302,10 @@ func (rb *RingBuffer) PeekUint64() uint64 {
 	}
 }
 
-/*Read 2022-10-31 16:58:00
-  参数: data,数据缓存
-  描述: 读取数据到data中,长度为data空间大小
+// Read 2022-10-31 16:58:00
+/*
+ 参数: data,数据缓存
+ 描述: 读取数据到data中,长度为data空间大小
 */
 func (rb *RingBuffer) Read(data []byte) (n int, err error) {
 	if len(data) == 0 {
@@ -337,8 +353,9 @@ func (rb *RingBuffer) Read(data []byte) (n int, err error) {
 	return
 }
 
-/*ReadByte 2022-10-31 17:04:46
-  描述: 读取单个字节
+// ReadByte 2022-10-31 17:04:46
+/*
+ 描述: 读取单个字节
 */
 func (rb *RingBuffer) ReadByte() (b byte, err error) {
 	if rb.isEmpty {
@@ -359,9 +376,10 @@ func (rb *RingBuffer) ReadByte() (b byte, err error) {
 	return
 }
 
-/*Write 2022-10-31 17:05:07
-  参数: data,数据缓存
-  描述: 将data写入ringbuffer中
+// Write 2022-10-31 17:05:07
+/*
+ 参数: data,数据缓存
+ 描述: 将data写入ringbuffer中
 */
 func (rb *RingBuffer) Write(data []byte) (n int, err error) {
 	if len(data) == 0 {
@@ -396,9 +414,10 @@ func (rb *RingBuffer) Write(data []byte) (n int, err error) {
 	return
 }
 
-/*WriteByte 2022-10-31 17:18:51
-  参数: b,字节
-  描述: 写入单字节
+// WriteByte 2022-10-31 17:18:51
+/*
+ 参数: b,字节
+ 描述: 写入单字节
 */
 func (rb *RingBuffer) WriteByte(b byte) error {
 	if rb.free() < 1 {
@@ -416,8 +435,9 @@ func (rb *RingBuffer) WriteByte(b byte) error {
 	return nil
 }
 
-/*Length 2022-10-31 17:19:39
-  描述: ringbuffer有效数据长度
+// Length 2022-10-31 17:19:39
+/*
+ 描述: ringbuffer有效数据长度
 */
 func (rb *RingBuffer) Length() int {
 	if rb.w == rb.r {
@@ -434,16 +454,18 @@ func (rb *RingBuffer) Length() int {
 	return rb.size - rb.r + rb.w
 }
 
-/*Capacity 2022-10-31 17:20:29
-  描述: ringbuffer容量大小
+// Capacity 2022-10-31 17:20:29
+/*
+ 描述: ringbuffer容量大小
 */
 func (rb *RingBuffer) Capacity() int {
 	return rb.size
 }
 
-/*WriteString 2022-10-31 17:21:07
-  参数: s,字符串
-  描述: 将字符串写入ringbuffer
+// WriteString 2022-10-31 17:21:07
+/*
+ 参数: s,字符串
+ 描述: 将字符串写入ringbuffer
 */
 func (rb *RingBuffer) WriteString(s string) (n int, err error) {
 	x := (*[2]uintptr)(unsafe.Pointer(&s))
@@ -451,8 +473,9 @@ func (rb *RingBuffer) WriteString(s string) (n int, err error) {
 	return rb.Write(*(*[]byte)(unsafe.Pointer(&h)))
 }
 
-/*Bytes 2022-10-29 17:41:32
-  描述: 返回所有可读数据，此操作不会移动读指针，仅仅是拷贝全部数据
+// Bytes 2022-10-29 17:41:32
+/*
+ 描述: 返回所有可读数据，此操作不会移动读指针，仅仅是拷贝全部数据
 */
 func (rb *RingBuffer) Bytes() (buf []byte) {
 	if rb.isEmpty {
@@ -471,22 +494,25 @@ func (rb *RingBuffer) Bytes() (buf []byte) {
 	return
 }
 
-/*IsFull 2022-10-29 17:40:20
-  描述: 缓冲区是否已满
+// IsFull 2022-10-29 17:40:20
+/*
+ 描述: 缓冲区是否已满
 */
 func (rb *RingBuffer) IsFull() bool {
 	return !rb.isEmpty && rb.w == rb.r
 }
 
-/*IsEmpty 2022-10-29 17:39:35
-  描述: 缓冲区是否为空
+// IsEmpty 2022-10-29 17:39:35
+/*
+ 描述: 缓冲区是否为空
 */
 func (rb *RingBuffer) IsEmpty() bool {
 	return rb.isEmpty
 }
 
-/*Reset 2022-10-29 17:36:52
-  描述: 将缓存缩容回初始化时的大小
+// Reset 2022-10-29 17:36:52
+/*
+ 描述: 将缓存缩容回初始化时的大小
 */
 func (rb *RingBuffer) Reset() {
 	rb.r = 0
@@ -500,9 +526,10 @@ func (rb *RingBuffer) Reset() {
 	}
 }
 
-/*grow 2022-10-29 17:53:21
-  参数: cap,容量大小
-  描述: 计算容量为cap时,需要扩容的值(参考切片append策略)
+// grow 2022-10-29 17:53:21
+/*
+ 参数: cap,容量大小
+ 描述: 计算容量为cap时,需要扩容的值(参考切片append策略)
 */
 func (rb *RingBuffer) grow(cap int) int {
 	newcap := rb.size
@@ -525,9 +552,10 @@ func (rb *RingBuffer) grow(cap int) int {
 	return newcap
 }
 
-/*enlargeSpace 2022-10-29 17:48:16
-  参数: len,需扩容大小
-  描述: 对ringbuffer扩容len(至少)
+// enlargeSpace 2022-10-29 17:48:16
+/*
+ 参数: len,需扩容大小
+ 描述: 对ringbuffer扩容len(至少)
 */
 func (rb *RingBuffer) enlargeSpace(len int) {
 	vlen := rb.VirtualLength()
@@ -543,8 +571,9 @@ func (rb *RingBuffer) enlargeSpace(len int) {
 	rb.buf = newBuf
 }
 
-/*free 2022-10-29 17:48:16
-  描述: 缓冲区的可用空间大小
+// free 2022-10-29 17:48:16
+/*
+ 描述: 缓冲区的可用空间大小
 */
 func (rb *RingBuffer) free() int {
 	if rb.w == rb.r {
@@ -561,10 +590,11 @@ func (rb *RingBuffer) free() int {
 	return rb.size - rb.w + rb.r
 }
 
-/*free 2022-10-29 18:05:41
-  参数: first,从读索引开始的数据
-  参数: end,从0索引开始的数据
-  描述: 将缓冲区尾部的数据 和 头部数据合并在一起
+// free 2022-10-29 18:05:41
+/*
+ 参数: first,从读索引开始的数据
+ 参数: end,从0索引开始的数据
+ 描述: 将缓冲区尾部的数据 和 头部数据合并在一起
 */
 func (rb *RingBuffer) joinBytes(first, end []byte) []byte {
 	buf := make([]byte, len(first)+len(end))

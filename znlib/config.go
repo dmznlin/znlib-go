@@ -1,4 +1,5 @@
-/*Package znlib ***************************************************************
+// Package znlib
+/******************************************************************************
 作者: dmzn@163.com 2022-05-30 13:45:17
 描述: 配置lib库
 
@@ -16,14 +17,15 @@ import (
 	"time"
 )
 
-//initLibOnce 确保一次初始化
+// initLibOnce 确保一次初始化
 var initLibOnce sync.Once
 
-//initLibUtils 初始化函数集
+// initLibUtils 初始化函数集
 type initLibUtils = func()
 
-/*InitLib 2022-08-16 20:49:11
-  描述: 由调用者执行初始化
+// InitLib 2022-08-16 20:49:11
+/*
+ 描述: 由调用者执行初始化
 */
 func InitLib(before, after initLibUtils) (result struct{}) {
 	result = struct{}{}
@@ -38,8 +40,9 @@ func InitLib(before, after initLibUtils) (result struct{}) {
 	return
 }
 
-/*init_lib 2022-05-30 13:47:33
-  描述: 根据先后依赖调用各源文件初始化
+// init_lib 2022-05-30 13:47:33
+/*
+ 描述: 根据先后依赖调用各源文件初始化
 */
 func init_lib() {
 	//默认配置: -------------------------------------------------------------------
@@ -108,10 +111,11 @@ func init_lib() {
 	}
 }
 
-/*load_logConfig 2022-08-11 19:22:24
-  参数: ini,配置文件对象
-  参数: sec,日志配置小节
-  描述: 载入日志外部配置
+// load_logConfig 2022-08-11 19:22:24
+/*
+ 参数: ini,配置文件对象
+ 参数: sec,日志配置小节
+ 描述: 载入日志外部配置
 */
 func load_logConfig(ini *iniFile.File, sec *iniFile.Section) {
 	if sec == nil {
@@ -150,11 +154,12 @@ func load_logConfig(ini *iniFile.File, sec *iniFile.Section) {
 	//以天计时
 }
 
-/*load_redisConfig 2022-08-11 19:40:53
-  参数: ini,配置文件对象
-  参数: sec,snowflake配置小节
-  参数: def,载入默认
-  描述: 载入redis外部配置
+// load_redisConfig 2022-08-11 19:40:53
+/*
+ 参数: ini,配置文件对象
+ 参数: sec,snowflake配置小节
+ 参数: def,载入默认
+ 描述: 载入redis外部配置
 */
 func load_snowflakeConfig(ini *iniFile.File, sec *iniFile.Section) {
 	if sec == nil {
@@ -165,11 +170,12 @@ func load_snowflakeConfig(ini *iniFile.File, sec *iniFile.Section) {
 	snowflakeConfig.datacenterID = sec.Key("dataCenterID").MustInt64(0)
 }
 
-/*load_redisConfig 2022-08-11 19:40:53
-  参数: ini,配置文件对象
-  参数: sec,redis配置小节
-  参数: def,载入默认
-  描述: 载入redis外部配置
+// load_redisConfig 2022-08-11 19:40:53
+/*
+ 参数: ini,配置文件对象
+ 参数: sec,redis配置小节
+ 参数: def,载入默认
+ 描述: 载入redis外部配置
 */
 func load_redisConfig(ini *iniFile.File, sec *iniFile.Section) {
 	if sec == nil {

@@ -1,10 +1,11 @@
-/*Package znlib ***************************************************************
+// Package znlib
+/******************************************************************************
   作者: dmzn@163.com 2022-06-08 14:59:33
   描述: znlib库常量定义
 ******************************************************************************/
 package znlib
 
-//DefaultEncryptKey 默认加密秘钥
+// DefaultEncryptKey 默认加密秘钥
 const DefaultEncryptKey = "znlib-go"
 
 const (
@@ -23,7 +24,7 @@ const (
 
 //-----------------------------------------------------------------------------
 
-//ValueRelation 数值比较关系
+// ValueRelation 数值比较关系
 type ValueRelation = byte
 
 const (
@@ -38,7 +39,7 @@ const (
 
 type SqlDbType = string
 
-//数据库类型定义
+// 数据库类型定义
 const (
 	SQLDB_mssql      SqlDbType = "SQL_Server"
 	SQLDB_mysql      SqlDbType = "MySQL"
@@ -48,7 +49,7 @@ const (
 	SQLDB_sqlite     SqlDbType = "SQL_Lite"
 )
 
-//SQLDB_Types 数据库类型列表
+// SQLDB_Types 数据库类型列表
 var SQLDB_Types = []SqlDbType{SQLDB_mssql, SQLDB_mysql, SQLDB_db2, SQLDB_oracle,
 	SQLDB_postgreSQL, SQLDB_sqlite}
 
@@ -61,7 +62,7 @@ const (
 
 type SqlDbFlag = string
 
-//构建SQL的结构体Tag
+// 构建SQL的结构体Tag
 const (
 	SQLTag_Table SqlDbFlag = "table"
 	SQLTag_DB    SqlDbFlag = "db"
@@ -159,7 +160,7 @@ const (
 	KeyCtrl8          Key = 0x7F
 )
 
-//windows virtual keys
+// windows virtual keys
 const (
 	vk_backspace   = 0x8
 	vk_tab         = 0x9
