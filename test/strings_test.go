@@ -93,3 +93,10 @@ func TestStrDel(t *testing.T) {
 		t.Errorf("znlib.Strdel wrong")
 	}
 }
+
+func TestStr2Pinyin(t *testing.T) {
+	var str = "白日依山尽"
+	if Str2Pinyin(str) != "brysj" {
+		t.Errorf("znlib.Str2Pinyin wrong")
+	}
+}
