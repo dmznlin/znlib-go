@@ -8,6 +8,7 @@ import (
 // znlib初始化
 var _ = InitLib(func() {
 	AppPath = `D:\Program Files\MyVCL\go\znlib-go\main\bin`
+	// Application.ConfigFile = `c:\main.ini`
 }, nil)
 
 func Test_FixPath(t *testing.T) {

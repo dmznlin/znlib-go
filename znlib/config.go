@@ -17,27 +17,29 @@ import (
 	"time"
 )
 
-// initLibOnce 确保一次初始化
-var initLibOnce sync.Once
-
 // initLibUtils 初始化函数集
 type initLibUtils = func()
+
+var (
+	// initBeforeUtil 初始化开始前执行操作
+	initBeforeUtil initLibUtils
+
+	// initLibOnce 确保一次初始化
+	initLibOnce sync.Once
+)
 
 // InitLib 2022-08-16 20:49:11
 /*
  描述: 由调用者执行初始化
 */
 func InitLib(before, after initLibUtils) (result struct{}) {
-	result = struct{}{}
-	if before != nil {
-		before()
-	}
-
+	initBeforeUtil = before
 	initLibOnce.Do(init_lib)
+
 	if after != nil {
 		after()
 	}
-	return
+	return struct{}{}
 }
 
 // init_lib 2022-05-30 13:47:33
@@ -48,6 +50,10 @@ func init_lib() {
 	//默认配置: -------------------------------------------------------------------
 	initApp()
 	//application.go
+
+	if initBeforeUtil != nil { //执行外部设定
+		initBeforeUtil()
+	}
 
 	cfg := struct {
 		logger    bool
