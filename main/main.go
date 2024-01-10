@@ -3,12 +3,19 @@ package main
 import (
 	"fmt"
 	. "github.com/dmznlin/znlib-go/znlib"
+	mt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"strconv"
+	"time"
 )
 
 func main() {
-	InitLib(nil, nil)
+	InitLib(func() {
+		Mqtt.Options.SetDefaultPublishHandler(func(client mt.Client, message mt.Message) {
+			Info(string(message.Topic()) + string(message.Payload()))
+		})
+	}, nil)
 	fmt.Println(StrCopy("dmzn", 3, 3))
 	Info("hello only")
 	Info("hello with fields", LogFields{"name": "dmzn", "age": 15}, LogFields{"act": "eat"})
@@ -29,11 +36,20 @@ func main() {
 		Info(v.Div(decimal.NewFromInt32(3)).String())
 	}
 
-	/*
-		WaitSystemExit(func() error {
-			return errors.New("first cleaner")
-		}, func() error {
-			return errors.New("second cleaner")
-		})
-	*/
+	mt := func() {
+		for i := 0; i < 10; i++ {
+			time.Sleep(time.Second)
+			Mqtt.Publish("", []string{"aa", "bb", "cc"})
+		}
+	}
+
+	go mt()
+	go mt()
+
+	WaitSystemExit(func() error {
+		return errors.New("first cleaner")
+	}, func() error {
+		return errors.New("second cleaner")
+	})
+
 }

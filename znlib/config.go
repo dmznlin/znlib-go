@@ -10,8 +10,12 @@
 package znlib
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"github.com/dmznlin/znlib-go/znlib/cast"
 	iniFile "github.com/go-ini/ini"
 	"github.com/sirupsen/logrus"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -56,51 +60,57 @@ func init_lib() {
 	}
 
 	cfg := struct {
-		logger    bool
 		dbmanager bool
 		snowflake bool
 		redis     bool
+		mqtt      bool
 	}{
-		logger:    true,
 		dbmanager: false,
-		snowflake: true,
+		snowflake: false,
 		redis:     false,
+		mqtt:      false,
 	}
 
 	load_logConfig(nil, nil)
 	load_redisConfig(nil, nil)
 	load_snowflakeConfig(nil, nil)
+	load_mqttConfig(nil, nil)
 
 	//外部配置: -------------------------------------------------------------------
 	if FileExists(Application.ConfigFile, false) {
 		ini, err := iniFile.Load(Application.ConfigFile)
-		if err == nil {
-			strBool := []string{"true", "false"}
-			//bool array
-
-			sec := ini.Section("logger")
-			cfg.logger = sec.Key("enable").In("true", strBool) == "true"
-			load_logConfig(ini, sec)
-
-			sec = ini.Section("dbmanager")
-			cfg.dbmanager = sec.Key("enable").In("true", strBool) == "true"
-
-			sec = ini.Section("snowflake")
-			cfg.snowflake = sec.Key("enable").In("true", strBool) == "true"
-			load_snowflakeConfig(ini, sec)
-
-			sec = ini.Section("redis")
-			cfg.redis = sec.Key("enable").In("true", strBool) == "true"
-			load_redisConfig(ini, sec)
+		if err != nil {
+			Error("znlib.init_lib: " + err.Error())
+			return
 		}
-	}
 
-	//启用配置: -------------------------------------------------------------------
-	if cfg.logger {
+		strBool := []string{"true", "false"}
+		//bool array
+
+		sec := ini.Section("logger")
+		load_logConfig(ini, sec)
+		init_logger() //logger.go
+
+		sec = ini.Section("dbmanager")
+		cfg.dbmanager = sec.Key("enable").In("true", strBool) == "true"
+
+		sec = ini.Section("snowflake")
+		cfg.snowflake = sec.Key("enable").In("true", strBool) == "true"
+		load_snowflakeConfig(ini, sec)
+
+		sec = ini.Section("redis")
+		cfg.redis = sec.Key("enable").In("true", strBool) == "true"
+		load_redisConfig(ini, sec)
+
+		sec = ini.Section("mqtt")
+		cfg.mqtt = sec.Key("enable").In("true", strBool) == "true"
+		load_mqttConfig(ini, sec)
+	} else {
 		init_logger()
 		//logger.go
 	}
 
+	//启用配置: -------------------------------------------------------------------
 	if cfg.snowflake {
 		init_snowflake()
 		//idgen.go
@@ -114,6 +124,11 @@ func init_lib() {
 	if cfg.redis {
 		init_redis()
 		//redis.go
+	}
+
+	if cfg.mqtt {
+		init_mqtt()
+		//mqtt.go
 	}
 }
 
@@ -134,7 +149,7 @@ func load_logConfig(ini *iniFile.File, sec *iniFile.Section) {
 		if StrPos(val, "$path") < 0 {
 			logConfig.filePath = val
 		} else {
-			logConfig.filePath = StrReplace(val, Application.ExePath, "$path\\", "$path/", "$path")
+			logConfig.filePath = FixPathVar(val)
 			//替换路径中的变量
 		}
 
@@ -237,4 +252,107 @@ func load_redisConfig(ini *iniFile.File, sec *iniFile.Section) {
 	if val != 0 {
 		redisConfig.poolTimeout = time.Duration(val) * time.Second
 	}
+}
+
+// load_mqttConfig 2024-01-09 16:54:33
+/*
+ 参数: ini,配置文件对象
+ 参数: sec,mqtt配置小节
+ 描述: 载入mqtt外部配置
+*/
+func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
+	if sec == nil {
+		return
+	}
+
+	var str string
+	str = sec.Key("broker").String()
+	brokers := strings.Split(str, ",")
+
+	for _, v := range brokers {
+		Mqtt.Options.AddBroker(v)
+		//多服务器支持
+	}
+
+	str = StrTrim(sec.Key("clientID").String())
+	if str != "" {
+		Mqtt.Options.SetClientID(str)
+	}
+
+	str = StrTrim(sec.Key("userName").String())
+	if str != "" {
+		Mqtt.Options.SetUsername(str)
+		//user-name
+	}
+
+	str = StrTrim(sec.Key("password").String())
+	if str != "" {
+		buf, err := NewEncrypter(EncryptDES_ECB, []byte(DefaultEncryptKey)).Decrypt([]byte(str), true)
+		if err == nil {
+			Mqtt.Options.SetPassword(string(buf))
+		} else {
+			Error("znlib.load_mqttConfig: " + err.Error())
+			return
+		}
+	}
+
+	str = FixPathVar(sec.Key("fileCA").String())
+	if FileExists(str, false) { //ca exists
+		rootCA, err := os.ReadFile(str)
+		if err != nil {
+			Error("znlib.load_mqttConfig: " + err.Error())
+			return
+		}
+
+		cp := x509.NewCertPool()
+		if !cp.AppendCertsFromPEM(rootCA) {
+			Error("znlib.load_mqttConfig: Could not add root crt")
+			return
+		}
+
+		str = FixPathVar(sec.Key("fileCRT").String())
+		key := FixPathVar(sec.Key("fileKey").String())
+		cert, err := tls.LoadX509KeyPair(str, key)
+		if err != nil {
+			Error("znlib.load_mqttConfig: " + err.Error())
+			return
+		}
+
+		Mqtt.Options.SetTLSConfig(&tls.Config{
+			RootCAs:            cp,
+			ClientAuth:         tls.NoClientCert,
+			ClientCAs:          nil,
+			InsecureSkipVerify: true,
+			Certificates:       []tls.Certificate{cert},
+		})
+	}
+
+	getTopics := func(key string) {
+		str = StrTrim(sec.Key(key).String())
+		if str == "" {
+			Warn("znlib.load_mqttConfig: invalid topic key > " + key)
+			return
+		}
+
+		topic := strings.Split(str, ",")
+		for _, v := range topic { //topic^qos
+			pos := strings.Index(v, "^")
+			if pos < 1 {
+				Warn("znlib.load_mqttConfig: invalid topic format > " + v)
+				continue
+			}
+
+			if strings.EqualFold(key, "subTopic") {
+				Mqtt.subTopics[v[:pos]] = byte(cast.ToInt8(v[pos+1:]))
+			} else {
+				Mqtt.pubTopics[v[:pos]] = byte(cast.ToInt8(v[pos+1:]))
+
+			}
+		}
+	}
+
+	getTopics("subTopic")
+	//订阅主题列表
+	getTopics("publish")
+	//发布主题列表
 }

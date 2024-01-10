@@ -100,6 +100,22 @@ func FixPath(dir string) string {
 	}
 }
 
+// FixPathVar 2024-01-10 11:30:42
+/*
+ 参数: dir,目录或文件
+ 描述: 若dir中有$path变量,则替换为AppPath.并统一路径分隔符
+*/
+func FixPathVar(dir string) string {
+	var str string
+	if Application.IsWindows {
+		str = StrReplace(dir, `\`, "/", "//")
+	} else {
+		str = StrReplace(dir, "/", `\`, `\\`)
+	}
+
+	return StrReplace(str, Application.ExePath, "$path\\", "$path/", "$path")
+}
+
 // MakeDir 2022-05-30 13:09:23
 /*
  参数: 件夹路径
@@ -258,7 +274,7 @@ func WaitSystemExit(cw ...func() error) {
  描述: 初始化系统运行环境
 */
 func initApp() {
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 	//random
 
 	hostName, err := os.Hostname()
