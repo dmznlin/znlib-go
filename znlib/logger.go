@@ -31,7 +31,7 @@ const (
 var Logger *logrus.Logger = nil
 
 // LogTraceCaller 跟踪日志调用
-var LogTraceCaller bool = false
+var LogTraceCaller = false
 
 // LogFields 日志附加字段
 type LogFields = logrus.Fields
@@ -92,7 +92,7 @@ func AddLog(logType logType, log interface{}, trace bool, fields ...LogFields) {
 
 	if trace { //附加调用路径跟踪
 		var (
-			idx int = 2
+			idx = 2
 			str strings.Builder
 		)
 

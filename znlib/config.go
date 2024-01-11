@@ -292,7 +292,6 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 			Mqtt.Options.SetPassword(string(buf))
 		} else {
 			Error("znlib.load_mqttConfig: " + err.Error())
-			return
 		}
 	}
 
@@ -301,13 +300,11 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 		rootCA, err := os.ReadFile(str)
 		if err != nil {
 			Error("znlib.load_mqttConfig: " + err.Error())
-			return
 		}
 
 		cp := x509.NewCertPool()
 		if !cp.AppendCertsFromPEM(rootCA) {
 			Error("znlib.load_mqttConfig: Could not add root crt")
-			return
 		}
 
 		str = FixPathVar(sec.Key("fileCRT").String())
@@ -315,7 +312,6 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 		cert, err := tls.LoadX509KeyPair(str, key)
 		if err != nil {
 			Error("znlib.load_mqttConfig: " + err.Error())
-			return
 		}
 
 		Mqtt.Options.SetTLSConfig(&tls.Config{

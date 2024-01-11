@@ -267,6 +267,33 @@ func WaitSystemExit(cw ...func() error) {
 	Info("清理工作完成,系统退出.")
 }
 
+// WaitFor 2024-01-11 09:07:22
+/*
+ 参数: d,等待间隔
+ 参数: canExit,检测是否可以退出
+ 描述: 等待一段时间,如果canExit返回true则提前退出
+*/
+func WaitFor(d time.Duration, canExit func() bool) {
+	end := time.Now().Add(d)
+	//结束时间
+	min := 20 * time.Millisecond
+	itv := d / min
+	//计时次数:按最小间隔拆分
+	if itv > 100 {
+		itv = d / 100
+	}
+
+	for range time.Tick(itv) {
+		if canExit != nil && canExit() { //外部退出
+			return
+		}
+
+		if time.Now().After(end) { //计时结束
+			return
+		}
+	}
+}
+
 //--------------------------------------------------------------------------------
 
 // initApp 2022-05-30 14:01:55

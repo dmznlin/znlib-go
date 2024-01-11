@@ -195,7 +195,7 @@ func (cq *CircularQueue[T]) MPop(num int) (values []T) {
 		return []T{}
 	}
 
-	var idx int = 0
+	var idx = 0
 	values = make([]T, num)
 
 	for num > 0 {
@@ -268,8 +268,8 @@ func (cq *CircularQueue[T]) Walk(walk func(idx int, value T, next *bool)) {
 	}
 
 	var (
-		idx  int  = 0
-		next bool = true
+		idx  = 0
+		next = true
 	)
 
 	switch cq.mode {

@@ -4,12 +4,15 @@
   描述: 支持tls的mqtt客户端
 
 备注:
-*.关联MQTT消息句柄
-  InitLib(func() {
-	Mqtt.Options.SetDefaultPublishHandler(func(client mt.Client, message mt.Message) {
-	  //在初始化lib库时,绑定消息函数
-	})
-  }, nil)
+*.使用方法
+  //1.启动
+  Mqtt.Start(func(client mt.Client, msg mt.Message) {
+    Info(string(msg.Topic()) + string(msg.Payload()))
+  })
+  //2.发布
+  Mqtt.Publish("", []string{"aa", "bb", "cc"})
+  //3.停止
+  Mqtt.Stop()
 ******************************************************************************/
 package znlib
 
@@ -75,11 +78,61 @@ func init_mqtt() {
 			Info("znlib.mqtt.reconnect_broker.")
 		})
 	}
+}
 
-	Mqtt.client = mt.NewClient(Mqtt.Options)
-	if token := Mqtt.client.Connect(); token.Wait() && token.Error() != nil {
+// Start 2024-01-11 08:24:20
+/*
+ 参数: msgHandler,消息处理函数
+ 描述: 启动mqtt服务
+*/
+func (mc *mqttClient) Start(msgHandler mt.MessageHandler) error {
+	if mc.client != nil {
+		return nil
+	}
+
+	if msgHandler != nil {
+		mc.Options.SetDefaultPublishHandler(msgHandler)
+		//默认消息处理句柄
+	}
+
+	mc.client = mt.NewClient(Mqtt.Options)
+	//创建链路
+	token := mc.client.Connect()
+	//连接broker
+
+	if token.Wait() && token.Error() != nil {
 		Error("znlib.mqtt.connect_broker", LogFields{"err": token.Error()})
 	}
+
+	return token.Error()
+}
+
+func (mc *mqttClient) Stop() {
+	if mc.client == nil {
+		return
+	}
+
+	if mc.client.IsConnected() { //退订所有主题
+		idx := len(mc.subTopics)
+		topics := make([]string, idx, idx)
+		idx = 0
+
+		for k := range mc.subTopics {
+			topics[idx] = k
+			idx++
+		}
+
+		token := mc.client.Unsubscribe(topics...)
+		token.Wait()
+		if token.Error() != nil {
+			Error("znlib.mqtt.unsubscribe", LogFields{"err": token.Error()})
+		} else {
+			Info(fmt.Sprintf("znlib.mqtt.unsubscribe: %v", topics))
+		}
+	}
+
+	mc.client.Disconnect(500)
+	//断开链路
 }
 
 // Publish 2024-01-10 15:32:26
@@ -106,7 +159,7 @@ func (mc *mqttClient) Publish(topic string, msg []string) {
 
 	topic = StrTrim(topic)
 	if topic == "" {
-		for k, _ := range mc.pubTopics {
+		for k := range mc.pubTopics {
 			pub(k)
 		}
 	} else {

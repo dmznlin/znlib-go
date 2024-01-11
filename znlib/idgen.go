@@ -134,7 +134,7 @@ type serialIDWorker struct {
 }
 
 // SerialID 全局串行编号对象
-var SerialID *serialIDWorker = &serialIDWorker{
+var SerialID = &serialIDWorker{
 	base: 0,
 }
 

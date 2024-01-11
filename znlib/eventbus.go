@@ -233,7 +233,7 @@ func (bus *EventBus) deleteHandler(topic string, toDel []*eventHandler, fn ...in
 	}
 
 	var (
-		idx    int = 0
+		idx    = 0
 		exists bool
 	)
 

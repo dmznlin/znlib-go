@@ -173,7 +173,7 @@ func IsNumber(str string, isfloat ...bool) (decimal.Decimal, bool) {
  描述: 返回obj的Value反射数据
 */
 func ReflectValue(obj interface{}) reflect.Value {
-	var val reflect.Value = reflect.ValueOf(obj)
+	var val = reflect.ValueOf(obj)
 	if val.Kind() == reflect.Ptr {
 		return val.Elem()
 	} else {
@@ -198,7 +198,7 @@ type StructFieldsWalker = func(field reflect.StructField, value reflect.Value, l
  描述: 检索obj的所有字段,并使用sw处理每个字段
 */
 func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
-	var curentLevel int = 1
+	var curentLevel = 1
 	if level != nil {
 		curentLevel = level[0]
 		if curentLevel < 1 {

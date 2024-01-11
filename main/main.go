@@ -11,11 +11,7 @@ import (
 )
 
 func main() {
-	InitLib(func() {
-		Mqtt.Options.SetDefaultPublishHandler(func(client mt.Client, message mt.Message) {
-			Info(string(message.Topic()) + string(message.Payload()))
-		})
-	}, nil)
+	InitLib(nil, nil)
 	fmt.Println(StrCopy("dmzn", 3, 3))
 	Info("hello only")
 	Info("hello with fields", LogFields{"name": "dmzn", "age": 15}, LogFields{"act": "eat"})
@@ -36,6 +32,10 @@ func main() {
 		Info(v.Div(decimal.NewFromInt32(3)).String())
 	}
 
+	Mqtt.Start(func(client mt.Client, message mt.Message) {
+		Info(string(message.Topic()) + string(message.Payload()))
+	})
+
 	mt := func() {
 		for i := 0; i < 10; i++ {
 			time.Sleep(time.Second)
@@ -50,6 +50,9 @@ func main() {
 		return errors.New("first cleaner")
 	}, func() error {
 		return errors.New("second cleaner")
+	}, func() error {
+		Mqtt.Stop()
+		return nil
 	})
 
 }
