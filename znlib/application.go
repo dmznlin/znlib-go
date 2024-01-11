@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"math/rand"
-	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -30,10 +29,9 @@ type application struct {
 	ConfigDB   string //数据库配置
 	PathSymbol string //路径分隔符
 
-	IsWindows bool     //win
-	IsLinux   bool     //linux
-	HostName  string   //主机名称
-	HostIP    []string //主机IP
+	IsWindows bool   //win
+	IsLinux   bool   //linux
+	HostName  string //主机名称
 
 	Ctx      context.Context //全局上下文
 	SyncLock sync.RWMutex    //全局同步锁
@@ -51,6 +49,13 @@ var (
 
 	//PathSeparator 路径分隔符: / or \\
 	PathSeparator = "/"
+
+	//cancelFunc 取消函数
+	cancelFunc context.CancelFunc
+	//cancelCall 执行取消
+	cancelCall sync.Once
+	//cancelExtend 退出操作列表
+	cancelExtend = make([]func(), 0)
 )
 
 // OSName 2022-05-30 13:14:24
@@ -259,6 +264,9 @@ func WaitSystemExit(cw ...func() error) {
 	close(ch)
 	Info("信号:" + s.String() + ",开始清理工作.")
 
+	Application.Exit()
+	Info("广播信号,执行routine退出.")
+
 	for _, fn := range cw {
 		if err := fn(); err != nil {
 			Error(err)
@@ -274,15 +282,21 @@ func WaitSystemExit(cw ...func() error) {
  描述: 等待一段时间,如果canExit返回true则提前退出
 */
 func WaitFor(d time.Duration, canExit func() bool) {
-	end := time.Now().Add(d)
-	//结束时间
-	min := 20 * time.Millisecond
-	itv := d / min
+	itv := 20 * time.Millisecond
+	//interval:最小时间间隔
+	if d <= itv {
+		time.Sleep(d)
+		return
+	}
+
+	num := d / itv
 	//计时次数:按最小间隔拆分
-	if itv > 100 {
+	if num > 100 {
 		itv = d / 100
 	}
 
+	end := time.Now().Add(d)
+	//结束时间
 	for range time.Tick(itv) {
 		if canExit != nil && canExit() { //外部退出
 			return
@@ -329,18 +343,34 @@ func initApp() {
 		IsLinux:    strings.EqualFold(osName, "linux"),
 		IsWindows:  strings.EqualFold(osName, "windows"),
 		HostName:   hostName,
-		HostIP:     make([]string, 0, 2),
-		Ctx:        context.Background(),
 	}
 
-	addr, err := net.InterfaceAddrs()
-	if err == nil {
-		for _, val := range addr {
-			if ip, ok := val.(*net.IPNet); ok && !ip.IP.IsLoopback() {
-				if ip.IP.To4() != nil {
-					Application.HostIP = append(Application.HostIP, ip.IP.String())
-				}
-			}
+	Application.Ctx, cancelFunc = context.WithCancel(context.Background())
+	//全局取消context,用于控制routine退出
+}
+
+// OnExit 2024-01-11 21:50:25
+/*
+ 参数: fn,函数
+ 描述: 注册fn函数,在系统退出时执行
+*/
+func (app *application) OnExit(fn func()) {
+	app.SyncLock.Lock()
+	defer app.SyncLock.Unlock()
+	cancelExtend = append(cancelExtend, fn)
+}
+
+// Exit 2024-01-11 21:14:24
+/*
+ 描述: 程序退出,广播消息给所有routine(需支持Ctx)
+*/
+func (app *application) Exit() {
+	cancelCall.Do(func() {
+		cancelFunc()
+		//设置退出标记
+
+		for _, fn := range cancelExtend { //执行退出操作
+			fn()
 		}
-	}
+	})
 }
