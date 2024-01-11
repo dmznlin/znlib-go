@@ -32,19 +32,38 @@ func main() {
 		Info(v.Div(decimal.NewFromInt32(3)).String())
 	}
 
+	WaitFor(100*time.Millisecond, func() bool {
+		Info("waitfor")
+		return false
+	})
+
 	Mqtt.Start(func(client mt.Client, message mt.Message) {
 		Info(string(message.Topic()) + string(message.Payload()))
 	})
 
-	mt := func() {
+	group := NewRoutineGroup()
+	mt := func(args ...interface{}) {
+	loop:
 		for i := 0; i < 10; i++ {
-			time.Sleep(time.Second)
 			Mqtt.Publish("", []string{"aa", "bb", "cc"})
+
+			select {
+			case <-Application.Ctx.Done():
+				Info("cancel")
+				break loop
+			default:
+				time.Sleep(5 * time.Second)
+			}
 		}
 	}
 
-	go mt()
-	go mt()
+	group.Run(mt)
+	group.Run(mt)
+
+	Application.OnExit(func() {
+		Info("i am exit")
+		group.Wait()
+	})
 
 	WaitSystemExit(func() error {
 		return errors.New("first cleaner")

@@ -219,6 +219,7 @@ func load_redisConfig(ini *iniFile.File, sec *iniFile.Section) {
 			redisConfig.password = string(buf)
 		} else {
 			Error("znlib.load_redisConfig: " + err.Error())
+			return
 		}
 	}
 
