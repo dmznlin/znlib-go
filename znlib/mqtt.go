@@ -57,9 +57,7 @@ func init_mqtt() {
 			if len(Mqtt.subTopics) > 0 {
 				token := client.SubscribeMultiple(Mqtt.subTopics, nil)
 				if token.Wait() && token.Error() == nil {
-					for k, v := range Mqtt.subTopics {
-						Info(fmt.Sprintf("znlib.mqtt.subscribe: %s,%d", k, v))
-					}
+					Info(fmt.Sprintf("znlib.mqtt.subscribe: %v", Mqtt.subTopics))
 				} else {
 					Error("znlib.mqtt.subscribe: ", LogFields{"err": token.Error()})
 				}

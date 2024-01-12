@@ -279,14 +279,14 @@ func WaitSystemExit(cw ...func() error) {
 /*
  参数: d,等待间隔
  参数: canExit,检测是否可以退出
- 描述: 等待一段时间,如果canExit返回true则提前退出
+ 描述: 等待一段时间.如果canExit=true则提前退出,则返回false表示等待被中断.
 */
-func WaitFor(d time.Duration, canExit func() bool) {
+func WaitFor(d time.Duration, canExit func() bool) bool {
 	itv := 20 * time.Millisecond
 	//interval:最小时间间隔
 	if d <= itv {
 		time.Sleep(d)
-		return
+		return true
 	}
 
 	num := d / itv
@@ -299,13 +299,15 @@ func WaitFor(d time.Duration, canExit func() bool) {
 	//结束时间
 	for range time.Tick(itv) {
 		if canExit != nil && canExit() { //外部退出
-			return
+			return false
 		}
 
 		if time.Now().After(end) { //计时结束
-			return
+			return true
 		}
 	}
+
+	return true
 }
 
 //--------------------------------------------------------------------------------
