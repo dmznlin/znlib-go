@@ -54,14 +54,7 @@ func init_mqtt() {
 			Info("znlib.mqtt.connect: " + host)
 
 			//连接成功后,重新订阅主题
-			if len(Mqtt.subTopics) > 0 {
-				token := client.SubscribeMultiple(Mqtt.subTopics, nil)
-				if token.Wait() && token.Error() == nil {
-					Info(fmt.Sprintf("znlib.mqtt.subscribe: %v", Mqtt.subTopics))
-				} else {
-					Error("znlib.mqtt.subscribe: ", LogFields{"err": token.Error()})
-				}
-			}
+			Mqtt.subscribeMultiple(client)
 		})
 	}
 
@@ -105,6 +98,10 @@ func (mc *mqttClient) Start(msgHandler mt.MessageHandler) error {
 	return token.Error()
 }
 
+// Stop 2024-01-14 15:23:20
+/*
+ 描述: 停止mqtt服务
+*/
 func (mc *mqttClient) Stop() {
 	if mc.client == nil {
 		return
@@ -164,4 +161,42 @@ func (mc *mqttClient) Publish(topic string, msg []string) {
 		pub(topic)
 		//自定义主题
 	}
+}
+
+// Subscribe 2024-01-14 14:52:25
+/*
+ 参数: topics,主题列表
+ 参数: clear,清空原列表
+ 描述: 新增订阅topics主题
+*/
+func (mc mqttClient) Subscribe(topics map[string]byte, clear bool) error {
+	if clear {
+		mc.subTopics = make(map[string]byte, 0)
+	}
+
+	for k, v := range topics {
+		mc.subTopics[k] = v
+	}
+
+	return mc.subscribeMultiple(mc.client)
+}
+
+// subscribeMultiple 2024-01-14 15:22:11
+/*
+ 参数: client,链路
+ 描述: 订阅主题列表
+*/
+func (mc mqttClient) subscribeMultiple(client mt.Client) error {
+	if len(Mqtt.subTopics) < 1 {
+		return nil
+	}
+
+	token := client.SubscribeMultiple(Mqtt.subTopics, nil)
+	if token.Wait() && token.Error() == nil {
+		Info(fmt.Sprintf("znlib.mqtt.subscribe: %v", Mqtt.subTopics))
+	} else {
+		Error("znlib.mqtt.subscribe: ", LogFields{"err": token.Error()})
+	}
+
+	return token.Error()
 }

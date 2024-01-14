@@ -185,16 +185,11 @@ func ErrorPanic(err error, message ...string) {
 /*
  参数: err,异常
  参数: msg,消息
- 参数: newone,是否自动生成
  描述: 生成一个携带err+msg的异常对象
 */
-func ErrorMsg(err error, msg string, newone ...bool) error {
+func ErrorMsg(err error, msg string) error {
 	if err == nil {
-		if newone != nil && newone[0] {
-			return errors.New(msg)
-		} else {
-			return nil
-		}
+		return errors.New(msg)
 	} else {
 		return errors.WithMessage(err, msg)
 	}

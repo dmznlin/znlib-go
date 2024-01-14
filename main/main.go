@@ -60,6 +60,8 @@ func main() {
 	group.Run(mt)
 	group.Run(mt)
 
+	Mqtt.Subscribe(map[string]byte{"/a/b": 0, "/a/c": 2}, true)
+
 	Application.OnExit(func() {
 		Info("i am exit")
 		group.Wait()

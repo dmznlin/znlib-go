@@ -3,6 +3,7 @@ package test
 import (
 	. "github.com/dmznlin/znlib-go/znlib"
 	"testing"
+	"time"
 )
 
 // znlib初始化
@@ -29,5 +30,18 @@ func TestTryFinally(t *testing.T) {
 
 	if err == nil {
 		t.Errorf("znlib.TryFinal wrong")
+	}
+}
+
+func TestWaitFor(t *testing.T) {
+	dura := 3 * time.Second
+	end := time.Now().Add(dura)
+	WaitFor(dura, func() bool {
+		Info("in func.")
+		return false
+	})
+
+	if time.Now().Before(end) {
+		t.Error("Waitfor exit.")
 	}
 }
