@@ -169,7 +169,7 @@ func (mc *mqttClient) Publish(topic string, msg []string) {
  参数: clear,清空原列表
  描述: 新增订阅topics主题
 */
-func (mc mqttClient) Subscribe(topics map[string]byte, clear bool) error {
+func (mc *mqttClient) Subscribe(topics map[string]byte, clear bool) error {
 	if clear {
 		mc.subTopics = make(map[string]byte, 0)
 	}

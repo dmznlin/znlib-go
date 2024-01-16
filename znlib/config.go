@@ -333,6 +333,8 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 
 		topic := strings.Split(str, ",")
 		for _, v := range topic { //topic^qos
+			v = strings.ReplaceAll(v, "*", "#")
+			//通配符
 			pos := strings.Index(v, "^")
 			if pos < 1 {
 				Warn("znlib.load_mqttConfig: invalid topic format > " + v)
