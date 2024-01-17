@@ -45,7 +45,7 @@ func main() {
 	mt := func(args ...interface{}) {
 	loop:
 		for i := 0; i < 10; i++ {
-			Mqtt.Publish("", []string{"aa", "bb", "cc"})
+			Mqtt.Publish("/aa", 2, []string{"aa", "bb", "cc"})
 
 			select {
 			case <-Application.Ctx.Done():

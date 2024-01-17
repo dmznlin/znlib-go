@@ -133,32 +133,26 @@ func (mc *mqttClient) Stop() {
 // Publish 2024-01-10 15:32:26
 /*
  参数: topic,主题
+ 参数: qos,送达级别
  参数: msg,消息内容
  描述: 向topic发布msg消息
 */
-func (mc *mqttClient) Publish(topic string, msg []string) {
-	pub := func(tp string) {
-		qos, ok := mc.pubTopics[tp]
-		if !ok {
-			Info(fmt.Sprintf("znlib.mqtt.publish: topic %s isn't exists", topic))
-			return
-		}
-
+func (mc *mqttClient) Publish(topic string, qos byte, msg []string) {
+	pub := func() {
 		for _, v := range msg {
-			token := mc.client.Publish(tp, qos, false, v)
+			token := mc.client.Publish(topic, qos, false, v)
 			if token.Wait() && token.Error() != nil {
 				Error("znlib.mqtt.publish", LogFields{"err": token.Error()})
 			}
 		}
 	}
 
-	topic = StrTrim(topic)
 	if topic == "" {
-		for k := range mc.pubTopics {
-			pub(k)
+		for topic, qos = range mc.pubTopics {
+			pub()
 		}
 	} else {
-		pub(topic)
+		pub()
 		//自定义主题
 	}
 }
