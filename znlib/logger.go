@@ -150,6 +150,21 @@ func Error(error interface{}, fields ...logrus.Fields) {
 	AddLog(logEror, error, LogTraceCaller, fields...)
 }
 
+// ErrorCaller 2024-01-19 09:28:13
+/*
+ 参数: error,日志内容
+ 参数: caller,调用者
+ 描述: 新增一条错误信息
+*/
+func ErrorCaller(error interface{}, caller string) {
+	caller = StrTrim(caller)
+	if caller == "" {
+		AddLog(logEror, error, LogTraceCaller)
+	} else {
+		AddLog(logEror, error, LogTraceCaller, LogFields{"caller": caller})
+	}
+}
+
 // WriteDefaultLog 2022-06-05 14:46:04
 /*
  参数: data,日志数据

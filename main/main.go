@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	. "github.com/dmznlin/znlib-go/znlib"
-	mt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"strconv"
 	"time"
@@ -32,46 +30,13 @@ func main() {
 		Info(v.Div(decimal.NewFromInt32(3)).String())
 	}
 
-	WaitFor(100*time.Millisecond, func() bool {
-		Info("waitfor")
-		return false
-	})
-
-	Mqtt.Start(func(client mt.Client, message mt.Message) {
-		Info(string(message.Topic()) + string(message.Payload()))
-	})
-
-	group := NewRoutineGroup()
-	mt := func(args ...interface{}) {
-	loop:
-		for i := 0; i < 10; i++ {
-			Mqtt.Publish("/aa", 2, []string{"aa", "bb", "cc"})
-
-			select {
-			case <-Application.Ctx.Done():
-				Info("cancel")
-				break loop
-			default:
-				time.Sleep(5 * time.Second)
-			}
-		}
-	}
-
-	group.Run(mt)
-	group.Run(mt)
-
-	Mqtt.Subscribe(map[string]byte{"/a/b": 0, "/a/c": 2}, true)
-
-	Application.OnExit(func() {
-		Info("i am exit")
-		group.Wait()
+	Mqtt.StartWithUtils(func(cmd *MqttCommand) error {
+		Info(cmd.Topic)
+		time.Sleep(5 * time.Second)
+		return nil
 	})
 
 	WaitSystemExit(func() error {
-		return errors.New("first cleaner")
-	}, func() error {
-		return errors.New("second cleaner")
-	}, func() error {
 		Mqtt.Stop()
 		return nil
 	})

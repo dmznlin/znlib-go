@@ -80,7 +80,7 @@ func init_lib() {
 	if FileExists(Application.ConfigFile, false) {
 		ini, err := iniFile.Load(Application.ConfigFile)
 		if err != nil {
-			Error("znlib.init_lib: " + err.Error())
+			ErrorCaller(err, "znlib.init_lib")
 			return
 		}
 
@@ -218,7 +218,7 @@ func load_redisConfig(ini *iniFile.File, sec *iniFile.Section) {
 		if err == nil {
 			redisConfig.password = string(buf)
 		} else {
-			Error("znlib.load_redisConfig: " + err.Error())
+			ErrorCaller(err, "znlib.load_redisConfig")
 			return
 		}
 	}
@@ -266,7 +266,10 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 		return
 	}
 
+	caller := "znlib.load_mqttConfig"
+	var val int
 	var str string
+
 	str = sec.Key("broker").String()
 	brokers := strings.Split(str, ",")
 
@@ -289,30 +292,63 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 	str = StrTrim(sec.Key("password").String())
 	if str != "" {
 		buf, err := NewEncrypter(EncryptDES_ECB, []byte(DefaultEncryptKey)).Decrypt([]byte(str), true)
-		if err == nil {
-			Mqtt.Options.SetPassword(string(buf))
-		} else {
-			Error("znlib.load_mqttConfig: " + err.Error())
+		if err != nil {
+			ErrorCaller(err, caller)
+			return
 		}
+
+		Mqtt.Options.SetPassword(string(buf))
+		//user-password
+	}
+
+	str = StrTrim(sec.Key("encrytKey").String())
+	if str != "" {
+		buf, err := NewEncrypter(EncryptDES_ECB, []byte(DefaultEncryptKey)).Decrypt([]byte(str), true)
+		if err != nil {
+			ErrorCaller(err, caller)
+			return
+		}
+
+		MqttUtils.msgKey = string(buf)
+		//消息加密密钥
+	}
+
+	str = StrTrim(sec.Key("verifyMsg").String())
+	if str != "" {
+		MqttUtils.msgVerify = str == "true"
+		//启用消息有效性验证
+	}
+
+	val = sec.Key("workerNum").MustInt(0)
+	if val > 0 {
+		MqttUtils.workerNum = val
+		//消息工作对象个数
+	}
+
+	val = sec.Key("delayWarn").MustInt(1)
+	if str != "" {
+		MqttUtils.msgDelay = time.Duration(val) * time.Second
 	}
 
 	str = FixPathVar(sec.Key("fileCA").String())
 	if FileExists(str, false) { //ca exists
 		rootCA, err := os.ReadFile(str)
 		if err != nil {
-			Error("znlib.load_mqttConfig: " + err.Error())
+			ErrorCaller(err, caller)
+			return
 		}
 
 		cp := x509.NewCertPool()
 		if !cp.AppendCertsFromPEM(rootCA) {
-			Error("znlib.load_mqttConfig: Could not add root crt")
+			ErrorCaller(ErrorMsg(nil, "could not add root crt"), caller)
+			return
 		}
 
 		str = FixPathVar(sec.Key("fileCRT").String())
 		key := FixPathVar(sec.Key("fileKey").String())
 		cert, err := tls.LoadX509KeyPair(str, key)
 		if err != nil {
-			Error("znlib.load_mqttConfig: " + err.Error())
+			ErrorCaller(err, caller)
 		}
 
 		Mqtt.Options.SetTLSConfig(&tls.Config{
@@ -327,7 +363,7 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 	getTopics := func(key string) {
 		str = StrTrim(sec.Key(key).String())
 		if str == "" {
-			Warn("znlib.load_mqttConfig: invalid topic key > " + key)
+			ErrorCaller(ErrorMsg(nil, "invalid topic key > "+key), caller)
 			return
 		}
 
@@ -337,7 +373,7 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 			//通配符
 			pos := strings.Index(v, "^")
 			if pos < 1 {
-				Warn("znlib.load_mqttConfig: invalid topic format > " + v)
+				ErrorCaller(ErrorMsg(nil, "invalid topic format > "+v), caller)
 				continue
 			}
 

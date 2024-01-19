@@ -60,7 +60,7 @@ func init_mqtt() {
 
 	if Mqtt.Options.OnConnectionLost == nil {
 		Mqtt.Options.SetConnectionLostHandler(func(client mt.Client, err error) {
-			Error("znlib.mqtt.lostconnect: " + err.Error())
+			ErrorCaller(err, "znlib.mqtt.lostconnect")
 		})
 	}
 
@@ -92,10 +92,26 @@ func (mc *mqttClient) Start(msgHandler mt.MessageHandler) error {
 	//连接broker
 
 	if token.Wait() && token.Error() != nil {
-		Error("znlib.mqtt.connect_broker", LogFields{"err": token.Error()})
+		ErrorCaller(token.Error(), "znlib.mqtt.connect_broker")
 	}
 
 	return token.Error()
+}
+
+// StartWithUtils 2024-01-19 11:21:32
+/*
+ 参数: msgHandle,消息处理函数
+ 描述: 使用mqttutils处理消息,支持加密和消息缓存
+*/
+func (mc *mqttClient) StartWithUtils(msgHandle MqttHandler) error {
+	MqttUtils.enabled = true
+	//启用辅助类
+	MqttUtils.RegisterHandler(msgHandle)
+	//注册外部处理
+	MqttUtils.addWorkers()
+	//启动工作对象
+	return mc.Start(MqttUtils.onMessge)
+	//启动mqtt
 }
 
 // Stop 2024-01-14 15:23:20
@@ -120,7 +136,7 @@ func (mc *mqttClient) Stop() {
 		token := mc.client.Unsubscribe(topics...)
 		token.Wait()
 		if token.Error() != nil {
-			Error("znlib.mqtt.unsubscribe", LogFields{"err": token.Error()})
+			ErrorCaller(token.Error(), "znlib.mqtt.unsubscribe")
 		} else {
 			Info(fmt.Sprintf("znlib.mqtt.unsubscribe: %v", topics))
 		}
@@ -128,6 +144,12 @@ func (mc *mqttClient) Stop() {
 
 	mc.client.Disconnect(500)
 	//断开链路
+
+	if MqttUtils.enabled {
+		Info("znlib.mqtt.stop: wait worker exit")
+		MqttUtils.workerGroup.Wait()
+		Info("znlib.mqtt.stop: all worker has exit")
+	}
 }
 
 // Publish 2024-01-10 15:32:26
@@ -142,7 +164,7 @@ func (mc *mqttClient) Publish(topic string, qos byte, msg []string) {
 		for _, v := range msg {
 			token := mc.client.Publish(topic, qos, false, v)
 			if token.Wait() && token.Error() != nil {
-				Error("znlib.mqtt.publish", LogFields{"err": token.Error()})
+				ErrorCaller(token.Error(), "znlib.mqtt.publish")
 			}
 		}
 	}
@@ -189,7 +211,7 @@ func (mc mqttClient) subscribeMultiple(client mt.Client) error {
 	if token.Wait() && token.Error() == nil {
 		Info(fmt.Sprintf("znlib.mqtt.subscribe: %v", Mqtt.subTopics))
 	} else {
-		Error("znlib.mqtt.subscribe: ", LogFields{"err": token.Error()})
+		ErrorCaller(token.Error(), "znlib.mqtt.subscribe")
 	}
 
 	return token.Error()

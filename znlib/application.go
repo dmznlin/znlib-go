@@ -29,6 +29,7 @@ type application struct {
 	ConfigDB   string //数据库配置
 	PathSymbol string //路径分隔符
 
+	IsDebug   bool   //调试模式
 	IsWindows bool   //win
 	IsLinux   bool   //linux
 	HostName  string //主机名称
@@ -147,11 +148,7 @@ func MakeDir(dir string) {
 func DeferHandle(throw bool, caller string, cb ...func(err any)) {
 	err := recover()
 	if err != nil {
-		if caller == "" {
-			Error(err)
-		} else {
-			Error(err, LogFields{"caller": caller})
-		}
+		ErrorCaller(err, caller)
 	}
 
 	for _, fn := range cb {
@@ -337,9 +334,11 @@ func initApp() {
 		ConfigFile: AppPath + "config.ini",
 		ConfigDB:   AppPath + "db.ini",
 		PathSymbol: PathSeparator,
-		IsLinux:    strings.EqualFold(osName, "linux"),
-		IsWindows:  strings.EqualFold(osName, "windows"),
-		HostName:   hostName,
+
+		IsDebug:   false,
+		IsLinux:   strings.EqualFold(osName, "linux"),
+		IsWindows: strings.EqualFold(osName, "windows"),
+		HostName:  hostName,
 	}
 
 	Application.Ctx, cancelFunc = context.WithCancel(context.Background())
