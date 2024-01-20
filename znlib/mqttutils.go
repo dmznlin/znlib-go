@@ -11,6 +11,7 @@ import (
 	"fmt"
 	mt "github.com/eclipse/paho.mqtt.golang"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 )
@@ -144,8 +145,10 @@ func (mc *MqttCommand) GetVerify() string {
  描述: 将mc发送至topic
 */
 func (mc *MqttCommand) SendCommand(topic string, qos byte) *MqttCommand {
-	if mc.VerifyUse && mc.Verify == "" {
+	if mc.VerifyUse {
 		mc.GetVerify()
+	} else {
+		mc.Verify = ""
 	}
 
 	data, err := json.Marshal(mc)
@@ -168,6 +171,22 @@ func (mc *MqttCommand) SendCommand(topic string, qos byte) *MqttCommand {
 	}
 
 	return nil
+}
+
+// SwitchUpDown 2024-01-19 16:13:45
+/*
+ 参数: up,上行
+ 描述: 切换mc的上、下行主题
+*/
+func (mc *MqttCommand) SwitchUpDown(up bool) {
+	mc.Sender = Mqtt.Options.ClientID
+	//更新发送者
+
+	if up {
+		mc.Topic = strings.ReplaceAll(mc.Topic, "/down/", "/up/")
+	} else {
+		mc.Topic = strings.ReplaceAll(mc.Topic, "/up/", "/down/")
+	}
 }
 
 //  ---------------------------------------------------------------------------
@@ -284,12 +303,12 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
 	//捕捉异常
 
 	if Application.IsDebug {
-		Info(fmt.Sprintf("znlib.mqtt..OnMessge: [%s]>%s", msg.Topic(), msg.Payload()))
+		Info(fmt.Sprintf(caller+": %s,%s", msg.Topic(), msg.Payload()))
 		//msg content
 
 		rnum, rcap := mu.msgRecv.Size()
 		inum, icap := mu.msgIdle.Size()
-		Info(fmt.Sprintf("znlib.mqtt..OnMessge: recv[%d,%d],idle[%d,%d]", rnum, rcap, inum, icap))
+		Info(fmt.Sprintf(caller+": recv[%d,%d],idle[%d,%d]", rnum, rcap, inum, icap))
 	}
 
 	cmd, ok := mu.msgIdle.Pop(nil)
@@ -305,11 +324,17 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
 		return
 	}
 
+	if cmd.Sender == Mqtt.Options.ClientID { //收到自己发送的消息,直接抛弃
+		mu.msgIdle.Push(cmd) //回收
+		Info(caller + ": receive message from self")
+		return
+	}
+
 	if mu.msgVerify { //需验证
 		str := cmd.Verify
 		if str == "" || cmd.GetVerify() != str { //验证失败
 			mu.msgIdle.Push(cmd) //回收
-			ErrorCaller(ErrorMsg(nil, "mqtt message verify failure"), caller)
+			ErrorCaller("mqtt message verify failure", caller)
 			return
 		}
 	}

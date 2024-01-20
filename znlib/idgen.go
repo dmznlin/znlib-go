@@ -11,7 +11,6 @@ package znlib
 
 import (
 	"encoding/binary"
-	"errors"
 	"github.com/gofrs/uuid"
 	"math"
 	"strconv"
@@ -92,7 +91,7 @@ func (w *snowflakeWorker) NextID() (uint64, error) {
 
 	timeStamp := w.getMilliSeconds()
 	if timeStamp < w.LastStamp {
-		return 0, errors.New("Snowflake.NextID: time is moving backwards")
+		return 0, ErrorMsg(nil, "Snowflake.NextID: time is moving backwards")
 	}
 
 	if w.LastStamp == timeStamp {
@@ -214,10 +213,9 @@ func (w *serialIDWorker) TimeID(year ...bool) string {
  注意: 该函数依赖redis服务,使用相同redis.db生成的id唯一.
 */
 func (w *serialIDWorker) DateID(key string, idlen int, prefix ...string) (id string, err error) {
-	defer DeferHandle(false, "znlib.DateID", func(e any) {
+	defer DeferHandle(false, "znlib.DateID", func(e error) {
 		if e != nil {
-			err = errors.New("serialIDWorker.DateID has error.")
-			//any error
+			err = ErrorMsg(e, "serialIDWorker.DateID has error.")
 		}
 	})
 
@@ -244,16 +242,16 @@ func (w *serialIDWorker) DateID(key string, idlen int, prefix ...string) (id str
 	if RedisClient.Exists(Application.Ctx, key).Val() == 1 {
 		vals, err = RedisClient.HMGet(Application.Ctx, key, field_base, field_date).Result()
 		if err != nil {
-			Error(ErrorMsg(err, "znlib.DateID"))
-		} else {
-			date := vals[1].(string)
-			if date == now { //
-				base = vals[0].(string)
-				val, e := strconv.ParseInt(base, 10, 64)
-				if e == nil {
-					val++
-					base = strconv.FormatInt(val, 10)
-				}
+			return "", ErrorMsg(err, "znlib.DateID")
+		}
+
+		date := vals[1].(string)
+		if date == now { //
+			base = vals[0].(string)
+			val, e := strconv.ParseInt(base, 10, 64)
+			if e == nil {
+				val++
+				base = strconv.FormatInt(val, 10)
 			}
 		}
 	}
@@ -323,7 +321,7 @@ func (w *randomIDWorker) UUID(version byte) (id string, err error) {
 	case uuid.V7:
 		uid, err = uuid.NewV7(uuid.NanosecondPrecision)
 	default:
-		err = errors.New("znlib.UUID: invalid version.")
+		err = ErrorMsg(nil, "znlib.UUID: invalid version.")
 	}
 
 	if err == nil {

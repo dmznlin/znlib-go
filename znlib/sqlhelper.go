@@ -66,9 +66,9 @@ func SQLFields(obj interface{}, exclude ...string) string {
  描述: 使用obj构建insert sql语句
 */
 func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType) (sql string, err error) {
-	defer DeferHandle(false, "znlib.SQLInsert", func(err any) {
-		if err != nil {
-			err = errors.New(fmt.Sprintf("znlib.SQLInsert: %v", err))
+	defer DeferHandle(false, "znlib.SQLInsert", func(e error) {
+		if e != nil {
+			err = ErrorMsg(err, "znlib.SQLInsert")
 		}
 	})
 
@@ -152,9 +152,9 @@ func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType)
  描述: 使用obj构建update sql语句
 */
 func SQLUpdate(obj interface{}, where string, getVal GetStructFieldValue, dbType ...SqlDbType) (sql string, err error) {
-	defer DeferHandle(false, "znlib.SQLUpdate", func(err any) {
-		if err != nil {
-			err = errors.New(fmt.Sprintf("znlib.SQLUpdate: %v", err))
+	defer DeferHandle(false, "znlib.SQLUpdate", func(e error) {
+		if e != nil {
+			err = ErrorMsg(e, "znlib.SQLUpdate")
 		}
 	})
 

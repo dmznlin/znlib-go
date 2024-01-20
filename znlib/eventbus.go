@@ -49,7 +49,7 @@ func NewEventBus() *EventBus {
 */
 func (bus *EventBus) doSubscribe(topic string, fn interface{}, handler *eventHandler) error {
 	if !(reflect.TypeOf(fn).Kind() == reflect.Func) {
-		return fmt.Errorf("znlib.EventBus: subscribe.fn must be func")
+		return ErrorMsg(nil, "znlib.EventBus: subscribe.fn must be func")
 	}
 
 	bus.lock.Lock()
@@ -121,7 +121,7 @@ func (bus *EventBus) Unsubscribe(topic string, fn ...interface{}) error {
 
 		return bus.deleteHandler(topic, nil, fn...)
 	} else {
-		return fmt.Errorf("znlib.Unsubscribe: topic %s doesn't exist", topic)
+		return ErrorMsg(nil, fmt.Sprintf("znlib.Unsubscribe: topic %s doesn't exist", topic))
 	}
 }
 
@@ -205,7 +205,7 @@ func (bus *EventBus) doPublish(handler *eventHandler, args ...interface{}) {
 */
 func (bus *EventBus) deleteHandler(topic string, toDel []*eventHandler, fn ...interface{}) error {
 	if len(toDel) < 1 && fn == nil {
-		return fmt.Errorf("znlib.EventBus: deleteHandler has invalid input.")
+		return ErrorMsg(nil, "znlib.EventBus: deleteHandler has invalid input.")
 	}
 
 	if fn != nil {

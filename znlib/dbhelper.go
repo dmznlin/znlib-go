@@ -54,7 +54,6 @@ VyO3Bhc3N3b3JkPSRwd2Q7RGF0YSBTb3VyY2U9JGhvc3Q=
 package znlib
 
 import (
-	"errors"
 	"fmt"
 	iniFile "github.com/go-ini/ini"
 	"github.com/jmoiron/sqlx"
@@ -222,7 +221,7 @@ func (dm *DbUtils) LoadConfig(file ...string) (err error) {
 	if len(dm.DBList) > 0 {
 		return nil
 	} else {
-		return errors.New("DbUtils:db-list is empty.")
+		return ErrorMsg(nil, "DbUtils:db-list is empty.")
 	}
 }
 
@@ -234,7 +233,7 @@ func (dm *DbUtils) LoadConfig(file ...string) (err error) {
 func (dm DbUtils) GetDB(dbname string) (db *sqlx.DB, err error) {
 	cfg, ok := dm.DBList[dbname]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf(`znlib.GetDB: "%s" not invalid.`, dbname))
+		return nil, ErrorMsg(nil, fmt.Sprintf(`znlib.GetDB: "%s" not invalid.`, dbname))
 	}
 
 	dm.sync.RLock()
@@ -277,17 +276,17 @@ func (dc *DBConfig) ApplyDSN() {
  参数: dsn,新的连接配置
  描述:
 */
-func (dm DbUtils) UpdateDSN(dbname, dsn string) (e error) {
+func (dm DbUtils) UpdateDSN(dbname, dsn string) (err error) {
 	cfg, ok := dm.DBList[dbname]
 	if !ok {
-		return errors.New(fmt.Sprintf(`znlib.ApplyDSN: "%s" not invalid.`, dbname))
+		return ErrorMsg(nil, fmt.Sprintf(`znlib.ApplyDSN: "%s" not invalid.`, dbname))
 	}
 
 	dm.sync.Lock()
-	defer DeferHandle(false, "znlib.ApplyDSN", func(err any) {
+	defer DeferHandle(false, "znlib.ApplyDSN", func(e error) {
 		dm.sync.Unlock()
-		if err != nil {
-			e = errors.New(fmt.Sprintf("%s", err))
+		if e != nil {
+			err = e
 		}
 	})
 

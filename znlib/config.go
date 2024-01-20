@@ -340,7 +340,7 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 
 		cp := x509.NewCertPool()
 		if !cp.AppendCertsFromPEM(rootCA) {
-			ErrorCaller(ErrorMsg(nil, "could not add root crt"), caller)
+			ErrorCaller("could not add root crt", caller)
 			return
 		}
 
@@ -363,7 +363,7 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 	getTopics := func(key string) {
 		str = StrTrim(sec.Key(key).String())
 		if str == "" {
-			ErrorCaller(ErrorMsg(nil, "invalid topic key > "+key), caller)
+			ErrorCaller("invalid topic key > "+key, caller)
 			return
 		}
 
@@ -373,7 +373,7 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 			//通配符
 			pos := strings.Index(v, "^")
 			if pos < 1 {
-				ErrorCaller(ErrorMsg(nil, "invalid topic format > "+v), caller)
+				ErrorCaller("invalid topic format > "+v, caller)
 				continue
 			}
 

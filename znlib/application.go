@@ -145,18 +145,28 @@ func MakeDir(dir string) {
  参数: cb,回调函数
  描述: 用于defer默认调用
 */
-func DeferHandle(throw bool, caller string, cb ...func(err any)) {
-	err := recover()
-	if err != nil {
-		ErrorCaller(err, caller)
+func DeferHandle(throw bool, caller string, cb ...func(err error)) {
+	var nErr error = nil
+	//转换any为常用的error
+
+	e := recover()
+	if e != nil {
+		var ok bool
+		nErr, ok = e.(error)
+		if !ok {
+			nErr = ErrorMsg(nil, fmt.Sprintf("%+v", e))
+		}
+
+		ErrorCaller(nErr, caller)
+		//记录日志
 	}
 
 	for _, fn := range cb {
-		fn(err)
+		fn(nErr)
 	}
 
-	if throw { //re-panic
-		panic(err)
+	if throw && nErr != nil { //re-panic
+		panic(nErr)
 	}
 }
 
@@ -215,7 +225,7 @@ func (tf TryFinal) Run() (err error) {
 			if ok {
 				err = e
 			} else {
-				err = errors.New(fmt.Sprintf("%s", errAny))
+				err = ErrorMsg(nil, fmt.Sprintf("%+v", errAny))
 			}
 		}
 

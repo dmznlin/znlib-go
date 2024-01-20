@@ -45,3 +45,11 @@ func TestWaitFor(t *testing.T) {
 		t.Error("Waitfor exit.")
 	}
 }
+
+func TestDeferHander(t *testing.T) {
+	defer DeferHandle(false, "test", func(err error) {
+		t.Log(err)
+	})
+
+	panic(ErrorMsg(nil, "hello,error"))
+}

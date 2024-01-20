@@ -19,6 +19,7 @@ package znlib
 import (
 	"fmt"
 	mt "github.com/eclipse/paho.mqtt.golang"
+	"math"
 )
 
 // mqttClient 客户端参数
@@ -170,7 +171,14 @@ func (mc *mqttClient) Publish(topic string, qos byte, msg []string) {
 	}
 
 	if topic == "" {
-		for topic, qos = range mc.pubTopics {
+		var q byte
+		useCfg := qos == math.MaxUint8
+		//使用配置qos
+
+		for topic, q = range mc.pubTopics {
+			if useCfg {
+				qos = q
+			}
 			pub()
 		}
 	} else {
