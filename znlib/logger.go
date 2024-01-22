@@ -184,10 +184,10 @@ func WriteDefaultLog(data string) {
 	buf := bufio.NewWriterSize(hwnd, 200)
 	defer buf.Flush() //将缓冲中的数据写入
 
-	buf.WriteString(DateTime2Str(time.Now(), LayoutDateTimeMilli) + string(KeyTab) + data)
-	if StrCopyRight(data, 1) != string(KeyEnter) {
-		buf.WriteString(string(KeyEnter))
+	if StrCopyRight(data, 1) != "\n" {
+		data = data + "\n"
 	}
+	buf.WriteString(DateTime2Str(time.Now(), LayoutDateTimeMilli) + "\t" + data)
 }
 
 //-----------------------------------------------------------------------------

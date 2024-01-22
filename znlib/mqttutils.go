@@ -319,13 +319,21 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
 	//  ---------------------------------------------------------------------------
 	err := json.Unmarshal(msg.Payload(), cmd)
 	if err != nil {
-		mu.msgIdle.Push(cmd) //回收
+		pe := mu.msgIdle.Push(cmd) //回收
+		if pe != nil {
+			err = ErrorMsg(err, pe.Error())
+		}
+
 		ErrorCaller(err, caller+".json.Unmarshal")
 		return
 	}
 
 	if cmd.Sender == Mqtt.Options.ClientID { //收到自己发送的消息,直接抛弃
-		mu.msgIdle.Push(cmd) //回收
+		pe := mu.msgIdle.Push(cmd) //回收
+		if pe != nil {
+			ErrorCaller(pe, caller)
+		}
+
 		Info(caller + ": receive message from self")
 		return
 	}
@@ -333,7 +341,11 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
 	if mu.msgVerify { //需验证
 		str := cmd.Verify
 		if str == "" || cmd.GetVerify() != str { //验证失败
-			mu.msgIdle.Push(cmd) //回收
+			pe := mu.msgIdle.Push(cmd) //回收
+			if pe != nil {
+				ErrorCaller(pe, caller)
+			}
+
 			ErrorCaller("mqtt message verify failure", caller)
 			return
 		}
@@ -343,8 +355,11 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
 	cmd.Timeout = 0
 	//整理数据
 
-	mu.msgRecv.Push(cmd)
+	pe := mu.msgRecv.Push(cmd)
 	//放入缓冲等待处理
+	if pe != nil {
+		ErrorCaller(pe, caller)
+	}
 
 	func() { //唤醒等待返回的消息
 		waitSync.RLock()
