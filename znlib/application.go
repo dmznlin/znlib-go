@@ -252,13 +252,6 @@ func (tf TryFinal) Run() (err error) {
 func WaitSystemExit(cw ...func() error) {
 	// 程序无法捕获信号 SIGKILL 和 SIGSTOP （终止和暂停进程），因此 os/signal 包对这两个信号无效。
 	signals := []os.Signal{syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT}
-	if Application.IsLinux {
-		signals = append(signals,
-			syscall.Signal(0x10), //syscall.SIGUSR1
-			syscall.Signal(0x11), // syscall.SIGUSR2
-		)
-	}
-
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, signals...)
 

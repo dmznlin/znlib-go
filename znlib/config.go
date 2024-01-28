@@ -16,6 +16,7 @@ import (
 	iniFile "github.com/go-ini/ini"
 	"github.com/sirupsen/logrus"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -280,6 +281,31 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 
 	str = StrTrim(sec.Key("clientID").String())
 	if str != "" {
+		idTag := "auto^"
+		idx := strings.Index(str, idTag)
+		if idx >= 0 {
+			sufLen, err := strconv.Atoi(str[idx+len(idTag):]) //auto^5
+			if err != nil {
+				ErrorCaller(err, caller+".autoClientID")
+				return
+			}
+
+			str = str[0:idx]       //前缀
+			idLen := 23 - len(str) //mqtt id长度限制
+			if sufLen > idLen {    //取最大可用长度
+				sufLen = idLen
+			}
+
+			suffix := SerialID.TimeID(true) //后缀
+			idLen = len(suffix)
+			if idLen > sufLen {
+				idLen = idLen - sufLen
+			} else {
+				sufLen = idLen
+				idLen = 0
+			}
+			str = str + suffix[idLen:idLen+sufLen]
+		}
 		Mqtt.Options.SetClientID(str)
 	}
 
