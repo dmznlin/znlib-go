@@ -35,7 +35,7 @@ type MqttHandler = func(cmd *MqttCommand) error
 
 // MqttUtils 辅助类
 type mqttUtils struct {
-	enabled     bool          //复制类已启用
+	enabled     bool          //辅助类已启用
 	msgKey      string        //消息加密密钥
 	msgVerify   bool          //消息需要验证
 	msgFun      []MqttHandler // 消息处理链
@@ -70,6 +70,10 @@ var MqttUtils = &mqttUtils{
  描述: 注册一个消息处理句柄
 */
 func (mu *mqttUtils) RegisterHandler(hd MqttHandler) {
+	if IsNil(hd) {
+		return
+	}
+
 	pFun := reflect.ValueOf(hd)
 	for _, v := range mu.msgFun {
 		if reflect.ValueOf(v).Pointer() == pFun.Pointer() { //重复注册
@@ -79,7 +83,6 @@ func (mu *mqttUtils) RegisterHandler(hd MqttHandler) {
 
 	mu.msgFun = append(mu.msgFun, hd)
 	//注册
-
 }
 
 // UnregisterHandler 2024-01-16 14:38:21
@@ -144,9 +147,11 @@ func (mc *MqttCommand) GetVerify() string {
  参数: qos,发送级别
  描述: 将mc发送至topic
 */
-func (mc *MqttCommand) SendCommand(topic string, qos byte) *MqttCommand {
+func (mc *MqttCommand) SendCommand(topic string, qos mqttQos) *MqttCommand {
 	if mc.VerifyUse {
-		mc.GetVerify()
+		if mc.Verify == "" {
+			mc.GetVerify()
+		}
 	} else {
 		mc.Verify = ""
 	}
@@ -298,6 +303,10 @@ func (mw *mqttWaiter) Clear() {
  描述: 接收broker下发的消息
 */
 func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
+	if !mu.enabled { //mqtt has stopped
+		return
+	}
+
 	caller := "znlib.mqtt.OnMessge"
 	defer DeferHandle(false, caller)
 	//捕捉异常
@@ -306,9 +315,9 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
 		Info(fmt.Sprintf(caller+": %s,%s", msg.Topic(), msg.Payload()))
 		//msg content
 
-		rnum, rcap := mu.msgRecv.Size()
-		inum, icap := mu.msgIdle.Size()
-		Info(fmt.Sprintf(caller+": recv[%d,%d],idle[%d,%d]", rnum, rcap, inum, icap))
+		rNum, rCap := mu.msgRecv.Size()
+		iNum, iCap := mu.msgIdle.Size()
+		Info(fmt.Sprintf(caller+": recv[%d,%d],idle[%d,%d]", rNum, rCap, iNum, iCap))
 	}
 
 	cmd, ok := mu.msgIdle.Pop(nil)
@@ -387,6 +396,10 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
  描述: 添加工作对象
 */
 func (mu *mqttUtils) addWorkers() {
+	if mu.enabled { //已添加
+		return
+	}
+
 	worker := func(args ...interface{}) {
 		workerID, _ := args[0].(int)
 		caller := fmt.Sprintf("znlib.mqtt.worker[%d]", workerID)
@@ -399,8 +412,11 @@ func (mu *mqttUtils) addWorkers() {
 			case <-Application.Ctx.Done(): //主程序退出
 				Info(caller + ": exit")
 				return
-			case <-mu.msgDone:
-				//跳出等待,处理消息
+			case _, ok := <-mu.msgDone: //跳出等待,处理消息
+				if !ok { //通道关闭
+					Info(caller + ": exit self")
+					return
+				}
 			}
 
 			hand := func() { //发布消息
@@ -416,7 +432,10 @@ func (mu *mqttUtils) addWorkers() {
 				}()
 
 				for _, v := range mu.msgFun { //将消息发布到处理链上
-					v(cmd)
+					err := v(cmd)
+					if err != nil {
+						ErrorCaller(err, caller)
+					}
 				}
 			}
 
@@ -430,6 +449,8 @@ func (mu *mqttUtils) addWorkers() {
 		}
 	}
 
+	mu.enabled = true
+	//启用辅助类
 	mu.msgDone = make(chan struct{}, mu.workerNum)
 	//按通道分配信号
 
@@ -438,4 +459,21 @@ func (mu *mqttUtils) addWorkers() {
 		id++ //从1开始
 		mu.workerGroup.Run(worker, id)
 	}
+}
+
+// stopWorkers 2024-01-29 18:55:39
+/*
+ 描述: 停止工作对象
+*/
+func (mu *mqttUtils) stopWorkers() {
+	if !mu.enabled { //未启用
+		return
+	}
+
+	mu.enabled = false
+	Info("znlib.mqtt.stop: wait worker exit")
+
+	close(mu.msgDone)
+	mu.workerGroup.Wait()
+	Info("znlib.mqtt.stop: all worker has exit")
 }

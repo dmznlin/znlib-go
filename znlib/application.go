@@ -190,16 +190,48 @@ func ErrorPanic(err error, message ...string) {
 
 // ErrorMsg 2022-08-12 15:53:48
 /*
- 参数: err,异常
+ 参数: base,异常
  参数: msg,消息
- 描述: 生成一个携带err+msg的异常对象
+ 参数: other,扩展消息
+ 描述: 生成一个携带 base+msg+other 的异常对象
 */
-func ErrorMsg(err error, msg string) error {
-	if err == nil {
-		return errors.New(msg)
+func ErrorMsg(base error, msg string, other ...string) (err error) {
+	if base == nil {
+		err = errors.New(msg)
 	} else {
-		return errors.WithMessage(err, msg)
+		err = errors.WithMessage(base, msg)
 	}
+
+	for _, v := range other {
+		err = errors.WithMessage(err, v)
+	}
+
+	return err
+}
+
+// ErrorJoin 2024-02-03 14:29:04
+/*
+ 参数: base,异常
+ 参数: other,其它异常
+ 描述: 合并 base,other 为一个异常对象
+*/
+func ErrorJoin(base error, other ...error) (err error) {
+	err = base
+	for _, v := range other {
+		if v == nil {
+			continue
+		}
+
+		if err == nil { //first
+			err = v
+			continue
+		}
+
+		err = errors.WithMessage(err, v.Error())
+		//combine
+	}
+
+	return err
 }
 
 // TryFinal 模拟delhpi的try...finally机制
@@ -279,7 +311,7 @@ func WaitSystemExit(cw ...func() error) {
 func WaitFor(d time.Duration, canExit func() bool) bool {
 	itv := 20 * time.Millisecond
 	//interval:最小时间间隔
-	if d <= itv {
+	if d <= itv || canExit == nil {
 		time.Sleep(d)
 		return true
 	}
@@ -293,7 +325,7 @@ func WaitFor(d time.Duration, canExit func() bool) bool {
 	end := time.Now().Add(d)
 	//结束时间
 	for range time.Tick(itv) {
-		if canExit != nil && canExit() { //外部退出
+		if canExit() { //外部退出
 			return false
 		}
 

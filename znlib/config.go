@@ -105,7 +105,10 @@ func init_lib() {
 
 		sec = ini.Section("mqtt")
 		cfg.mqtt = sec.Key("enable").In("true", strBool) == "true"
+
 		load_mqttConfig(ini, sec)
+		sec = ini.Section("mqttSSH")
+		loadMqttSSHConfig(ini, sec)
 	} else {
 		init_logger()
 		//logger.go
@@ -130,6 +133,8 @@ func init_lib() {
 	if cfg.mqtt {
 		init_mqtt()
 		//mqtt.go
+		init_mqttSSH()
+		//mqttssh.go
 	}
 }
 
@@ -327,7 +332,7 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 		//user-password
 	}
 
-	str = StrTrim(sec.Key("encrytKey").String())
+	str = StrTrim(sec.Key("encryptKey").String())
 	if str != "" {
 		buf, err := NewEncrypter(EncryptDES_ECB, []byte(DefaultEncryptKey)).Decrypt([]byte(str), true)
 		if err != nil {
@@ -386,34 +391,115 @@ func load_mqttConfig(ini *iniFile.File, sec *iniFile.Section) {
 		})
 	}
 
-	getTopics := func(key string) {
-		str = StrTrim(sec.Key(key).String())
-		if str == "" {
-			ErrorCaller("invalid topic key > "+key, caller)
-			return
+	getMqttTopic(sec, "subTopic", true, caller)
+	//订阅主题列表
+	getMqttTopic(sec, "publish", false, caller)
+	//发布主题列表
+}
+
+// getMqttTopic 2024-02-01 19:49:37
+/*
+ 参数: sec,ini配置小节
+ 参数: key,ini键
+ 参数: isSub,是否订阅主题
+ 描述: 读取sec.key中的主题配置
+*/
+func getMqttTopic(sec *iniFile.Section, key string, isSub bool, caller string) (topics map[string]mqttQos) {
+	var str string
+	var qos mqttQos
+	str = StrTrim(sec.Key(key).String())
+	if str == "" {
+		ErrorCaller("invalid topics key > "+key, caller)
+		return nil
+	}
+
+	list := strings.Split(str, ",")
+	if len(list) > 0 {
+		topics = make(map[string]mqttQos, len(list))
+	}
+
+	for _, v := range list { //topics^qos
+		v = strings.ReplaceAll(v, "*", "#")
+		//通配符
+		pos := strings.Index(v, "^")
+		if pos < 1 {
+			ErrorCaller("invalid topics format > "+v, caller)
+			continue
 		}
 
-		topic := strings.Split(str, ",")
-		for _, v := range topic { //topic^qos
-			v = strings.ReplaceAll(v, "*", "#")
-			//通配符
-			pos := strings.Index(v, "^")
-			if pos < 1 {
-				ErrorCaller("invalid topic format > "+v, caller)
-				continue
-			}
+		str = v[:pos]
+		qos = byte(cast.ToInt8(v[pos+1:]))
+		topics[str] = qos //add result
 
-			if strings.EqualFold(key, "subTopic") {
-				Mqtt.subTopics[v[:pos]] = byte(cast.ToInt8(v[pos+1:]))
-			} else {
-				Mqtt.pubTopics[v[:pos]] = byte(cast.ToInt8(v[pos+1:]))
+		topic := strings.ReplaceAll(str, "$id", Mqtt.Options.ClientID)
+		//使用id配置
+		if isSub {
+			Mqtt.subTopics[topic] = qos
+		} else {
+			Mqtt.pubTopics[topic] = qos
 
-			}
 		}
 	}
 
-	getTopics("subTopic")
-	//订阅主题列表
-	getTopics("publish")
-	//发布主题列表
+	return topics
+}
+
+// loadMqttSSHConfig 2024-01-09 16:54:33
+/*
+ 参数: ini,配置文件对象
+ 参数: sec,mqttSSH配置小节
+ 描述: 载入mqttSSH外部配置
+*/
+func loadMqttSSHConfig(ini *iniFile.File, sec *iniFile.Section) {
+	if sec == nil {
+		return
+	}
+
+	caller := "znlib.loadMqttSSHConfig"
+	var str string
+	MqttSSH.enabled = StrTrim(sec.Key("enable").String()) == "true"
+
+	str = StrTrim(sec.Key("host").String())
+	if str != "" {
+		MqttSSH.host = str
+	}
+
+	str = StrTrim(sec.Key("user").String())
+	if str != "" {
+		MqttSSH.user = str
+	}
+
+	str = StrTrim(sec.Key("password").String())
+	if str != "" {
+		buf, err := NewEncrypter(EncryptDES_ECB, []byte(DefaultEncryptKey)).Decrypt([]byte(str), true)
+		if err != nil {
+			ErrorCaller(err, caller)
+			return
+		}
+
+		MqttSSH.password = string(buf)
+		//用户密码
+	}
+
+	topics := getMqttTopic(sec, "channel", true, caller)
+	if topics != nil {
+		for k, v := range topics { //获取通道列表
+			MqttSSH.channel[k] = v
+		}
+	}
+
+	str = StrTrim(sec.Key("connTimeout").String())
+	if str != "" {
+		MqttSSH.connTimeout = cast.ToDuration(str)
+	}
+
+	str = StrTrim(sec.Key("exitTimeout").String())
+	if str != "" {
+		MqttSSH.exitTimeout = cast.ToDuration(str)
+	}
+
+	str = StrTrim(sec.Key("command").String())
+	if str != "" {
+		MqttSSH.sshCmd = cast.ToUint8(str)
+	}
 }
