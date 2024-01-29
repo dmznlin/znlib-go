@@ -19,22 +19,31 @@ package znlib
 import (
 	"fmt"
 	mt "github.com/eclipse/paho.mqtt.golang"
-	"math"
+)
+
+// mqttQos qos定义
+type mqttQos = byte
+
+const (
+	MqttQos0    mqttQos = 0  //最多交付一次
+	MqttQos1    mqttQos = 1  //至少交付一次
+	MqttQos2    mqttQos = 2  //只交付一次
+	MqttQosNone mqttQos = 27 //使用配置文件中的qos
 )
 
 // mqttClient 客户端参数
 type mqttClient struct {
 	client    mt.Client
 	Options   *mt.ClientOptions
-	subTopics map[string]byte
-	pubTopics map[string]byte
+	subTopics map[string]mqttQos
+	pubTopics map[string]mqttQos
 }
 
 // Mqtt 客户端
 var Mqtt = &mqttClient{
 	Options:   mt.NewClientOptions(),
-	subTopics: make(map[string]byte, 0),
-	pubTopics: make(map[string]byte, 0),
+	subTopics: make(map[string]mqttQos),
+	pubTopics: make(map[string]mqttQos),
 }
 
 // init_mqtt 2024-01-09 17:03:09
@@ -105,8 +114,6 @@ func (mc *mqttClient) Start(msgHandler mt.MessageHandler) error {
  描述: 使用mqttutils处理消息,支持加密和消息缓存
 */
 func (mc *mqttClient) StartWithUtils(msgHandle MqttHandler) error {
-	MqttUtils.enabled = true
-	//启用辅助类
 	MqttUtils.RegisterHandler(msgHandle)
 	//注册外部处理
 	MqttUtils.addWorkers()
@@ -145,12 +152,10 @@ func (mc *mqttClient) Stop() {
 
 	mc.client.Disconnect(500)
 	//断开链路
+	mc.client = nil
 
-	if MqttUtils.enabled {
-		Info("znlib.mqtt.stop: wait worker exit")
-		MqttUtils.workerGroup.Wait()
-		Info("znlib.mqtt.stop: all worker has exit")
-	}
+	MqttUtils.stopWorkers()
+	//停止辅助类工作对象
 }
 
 // Publish 2024-01-10 15:32:26
@@ -160,7 +165,7 @@ func (mc *mqttClient) Stop() {
  参数: msg,消息内容
  描述: 向topic发布msg消息
 */
-func (mc *mqttClient) Publish(topic string, qos byte, msg []string) {
+func (mc *mqttClient) Publish(topic string, qos mqttQos, msg []string) {
 	pub := func() {
 		for _, v := range msg {
 			token := mc.client.Publish(topic, qos, false, v)
@@ -171,8 +176,8 @@ func (mc *mqttClient) Publish(topic string, qos byte, msg []string) {
 	}
 
 	if topic == "" {
-		var q byte
-		useCfg := qos == math.MaxUint8
+		var q mqttQos
+		useCfg := qos == MqttQosNone
 		//使用配置qos
 
 		for topic, q = range mc.pubTopics {
@@ -193,9 +198,9 @@ func (mc *mqttClient) Publish(topic string, qos byte, msg []string) {
  参数: clear,清空原列表
  描述: 新增订阅topics主题
 */
-func (mc *mqttClient) Subscribe(topics map[string]byte, clear bool) error {
+func (mc *mqttClient) Subscribe(topics map[string]mqttQos, clear bool) error {
 	if clear {
-		mc.subTopics = make(map[string]byte, 0)
+		mc.subTopics = make(map[string]mqttQos, 0)
 	}
 
 	for k, v := range topics {

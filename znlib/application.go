@@ -279,7 +279,7 @@ func WaitSystemExit(cw ...func() error) {
 func WaitFor(d time.Duration, canExit func() bool) bool {
 	itv := 20 * time.Millisecond
 	//interval:最小时间间隔
-	if d <= itv {
+	if d <= itv || canExit == nil {
 		time.Sleep(d)
 		return true
 	}
@@ -293,7 +293,7 @@ func WaitFor(d time.Duration, canExit func() bool) bool {
 	end := time.Now().Add(d)
 	//结束时间
 	for range time.Tick(itv) {
-		if canExit != nil && canExit() { //外部退出
+		if canExit() { //外部退出
 			return false
 		}
 

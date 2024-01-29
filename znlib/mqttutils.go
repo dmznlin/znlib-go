@@ -144,7 +144,7 @@ func (mc *MqttCommand) GetVerify() string {
  参数: qos,发送级别
  描述: 将mc发送至topic
 */
-func (mc *MqttCommand) SendCommand(topic string, qos byte) *MqttCommand {
+func (mc *MqttCommand) SendCommand(topic string, qos mqttQos) *MqttCommand {
 	if mc.VerifyUse {
 		mc.GetVerify()
 	} else {
@@ -298,6 +298,10 @@ func (mw *mqttWaiter) Clear() {
  描述: 接收broker下发的消息
 */
 func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
+	if !mu.enabled { //mqtt has stopped
+		return
+	}
+
 	caller := "znlib.mqtt.OnMessge"
 	defer DeferHandle(false, caller)
 	//捕捉异常
@@ -306,9 +310,9 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
 		Info(fmt.Sprintf(caller+": %s,%s", msg.Topic(), msg.Payload()))
 		//msg content
 
-		rnum, rcap := mu.msgRecv.Size()
-		inum, icap := mu.msgIdle.Size()
-		Info(fmt.Sprintf(caller+": recv[%d,%d],idle[%d,%d]", rnum, rcap, inum, icap))
+		rNum, rCap := mu.msgRecv.Size()
+		iNum, iCap := mu.msgIdle.Size()
+		Info(fmt.Sprintf(caller+": recv[%d,%d],idle[%d,%d]", rNum, rCap, iNum, iCap))
 	}
 
 	cmd, ok := mu.msgIdle.Pop(nil)
@@ -387,6 +391,10 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
  描述: 添加工作对象
 */
 func (mu *mqttUtils) addWorkers() {
+	if mu.enabled { //已添加
+		return
+	}
+
 	worker := func(args ...interface{}) {
 		workerID, _ := args[0].(int)
 		caller := fmt.Sprintf("znlib.mqtt.worker[%d]", workerID)
@@ -399,8 +407,11 @@ func (mu *mqttUtils) addWorkers() {
 			case <-Application.Ctx.Done(): //主程序退出
 				Info(caller + ": exit")
 				return
-			case <-mu.msgDone:
-				//跳出等待,处理消息
+			case _, ok := <-mu.msgDone: //跳出等待,处理消息
+				if !ok { //通道关闭
+					Info(caller + ": exit self")
+					return
+				}
 			}
 
 			hand := func() { //发布消息
@@ -430,6 +441,8 @@ func (mu *mqttUtils) addWorkers() {
 		}
 	}
 
+	mu.enabled = true
+	//启用辅助类
 	mu.msgDone = make(chan struct{}, mu.workerNum)
 	//按通道分配信号
 
@@ -438,4 +451,21 @@ func (mu *mqttUtils) addWorkers() {
 		id++ //从1开始
 		mu.workerGroup.Run(worker, id)
 	}
+}
+
+// stopWorkers 2024-01-29 18:55:39
+/*
+ 描述: 停止工作对象
+*/
+func (mu *mqttUtils) stopWorkers() {
+	if !mu.enabled { //未启用
+		return
+	}
+
+	mu.enabled = false
+	Info("znlib.mqtt.stop: wait worker exit")
+
+	close(mu.msgDone)
+	mu.workerGroup.Wait()
+	Info("znlib.mqtt.stop: all worker has exit")
 }
