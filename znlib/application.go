@@ -26,7 +26,6 @@ type application struct {
 	ExePath    string //exe所在路径
 	LogPath    string //日志目录
 	ConfigFile string //主配置文件
-	ConfigDB   string //数据库配置
 	PathSymbol string //路径分隔符
 
 	IsDebug   bool   //调试模式
@@ -366,8 +365,7 @@ func initApp() {
 		ExeName:    AppFile,
 		ExePath:    AppPath,
 		LogPath:    AppPath + "logs" + PathSeparator,
-		ConfigFile: AppPath + "config.ini",
-		ConfigDB:   AppPath + "db.ini",
+		ConfigFile: AppPath + "config.xml",
 		PathSymbol: PathSeparator,
 
 		IsDebug:   false,

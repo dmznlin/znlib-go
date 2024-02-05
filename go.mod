@@ -3,9 +3,9 @@ module github.com/dmznlin/znlib-go
 go 1.18
 
 require (
+	github.com/beevik/etree v1.3.0
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/forgoer/openssl v1.2.1
-	github.com/go-ini/ini v1.66.4
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/jmoiron/sqlx v1.3.5
@@ -35,4 +35,5 @@ require (
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
+	golang.org/x/term v0.16.0 // indirect
 )

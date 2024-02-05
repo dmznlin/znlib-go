@@ -9,6 +9,11 @@ package znlib
 const DefaultEncryptKey = "znlib-go"
 
 const (
+	StrTrue  = "true"  //true string
+	StrFalse = "false" //false string
+)
+
+const (
 	LayoutTime          = "15:04:05"                //时间
 	LayoutTimeMilli     = "15:04:05.000"            //时间 + 毫秒
 	LayoutDate          = "2006-01-02"              //日期
@@ -41,12 +46,12 @@ type SqlDbType = string
 
 // 数据库类型定义
 const (
-	SQLDB_mssql      SqlDbType = "SQL_Server"
+	SQLDB_mssql      SqlDbType = "SqlServer"
 	SQLDB_mysql      SqlDbType = "MySQL"
 	SQLDB_db2        SqlDbType = "DB2"
 	SQLDB_oracle     SqlDbType = "Oracle"
 	SQLDB_postgreSQL SqlDbType = "PostgreSQL"
-	SQLDB_sqlite     SqlDbType = "SQL_Lite"
+	SQLDB_sqlite     SqlDbType = "Sqlite"
 )
 
 // SQLDB_Types 数据库类型列表
