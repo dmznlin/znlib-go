@@ -19,31 +19,46 @@ package znlib
 import (
 	"fmt"
 	mt "github.com/eclipse/paho.mqtt.golang"
+	"reflect"
 )
 
-// mqttQos qos定义
-type mqttQos = byte
+// MqttQos qos定义
+type MqttQos = byte
 
 const (
-	MqttQos0    mqttQos = 0  //最多交付一次
-	MqttQos1    mqttQos = 1  //至少交付一次
-	MqttQos2    mqttQos = 2  //只交付一次
-	MqttQosNone mqttQos = 27 //使用配置文件中的qos
+	MqttQos0    MqttQos = 0  //最多交付一次
+	MqttQos1    MqttQos = 1  //至少交付一次
+	MqttQos2    MqttQos = 2  //只交付一次
+	MqttQosNone MqttQos = 27 //使用配置文件中的qos
+)
+
+type (
+	MqttEvent        = byte                  //event代码
+	MqttEventHandler = func(event MqttEvent) //event句柄
+)
+
+const (
+	MqttEventConnected    MqttEvent = iota //连接broker成功
+	MqttEventDisconnect                    //broker连接断开
+	MqttEventServiceStart                  //mqtt服务启动
+	MqttEventServiceStop                   //mqtt服务停止
 )
 
 // mqttClient 客户端参数
 type mqttClient struct {
 	client    mt.Client
 	Options   *mt.ClientOptions
-	subTopics map[string]mqttQos
-	pubTopics map[string]mqttQos
+	subTopics map[string]MqttQos
+	pubTopics map[string]MqttQos
+	events    []MqttEventHandler
 }
 
 // Mqtt 客户端
 var Mqtt = &mqttClient{
 	Options:   mt.NewClientOptions(),
-	subTopics: make(map[string]mqttQos),
-	pubTopics: make(map[string]mqttQos),
+	subTopics: make(map[string]MqttQos),
+	pubTopics: make(map[string]MqttQos),
+	events:    make([]MqttEventHandler, 0),
 }
 
 // init_mqtt 2024-01-09 17:03:09
@@ -51,6 +66,11 @@ var Mqtt = &mqttClient{
  描述: 初始化mqtt连接
 */
 func init_mqtt() {
+	Application.RegisterExitHandler(func() {
+		Mqtt.Stop()
+		//退出时停止
+	})
+
 	if Mqtt.Options.OnConnect == nil {
 		Mqtt.Options.SetOnConnectHandler(func(client mt.Client) {
 			var host string
@@ -61,23 +81,66 @@ func init_mqtt() {
 					host = host + "," + v.String()
 				}
 			}
-			Info("znlib.mqtt.connect: " + host)
 
-			//连接成功后,重新订阅主题
+			Info("znlib.mqtt.connect: " + host)
+			//log
 			Mqtt.subscribeMultiple(client)
+			//连接成功后,重新订阅主题
+			Mqtt.eventAction(MqttEventConnected)
+			//触发已连接事件
 		})
 	}
 
 	if Mqtt.Options.OnConnectionLost == nil {
 		Mqtt.Options.SetConnectionLostHandler(func(client mt.Client, err error) {
 			ErrorCaller(err, "znlib.mqtt.lostconnect")
+			//log
+			Mqtt.eventAction(MqttEventDisconnect)
+			//触发断开事件
 		})
 	}
 
 	if Mqtt.Options.OnReconnecting == nil {
 		Mqtt.Options.SetReconnectingHandler(func(client mt.Client, options *mt.ClientOptions) {
 			Info("znlib.mqtt.reconnect_broker.")
+			//log
 		})
+	}
+}
+
+// RegisterEventHandler 2024-02-06 17:45:36
+/*
+ 参数: fn,事件句柄
+ 描述: 添加fn处理mqtt事件
+*/
+func (mc *mqttClient) RegisterEventHandler(fn MqttEventHandler) {
+	if IsNil(fn) {
+		return
+	}
+
+	Application.SyncLock.Lock()
+	defer Application.SyncLock.Unlock()
+	pFun := reflect.ValueOf(fn)
+
+	for _, v := range mc.events {
+		if reflect.ValueOf(v).Pointer() == pFun.Pointer() { //重复注册
+			return
+		}
+	}
+
+	mc.events = append(mc.events, fn)
+	//注册
+}
+
+// eventAction 2024-02-06 12:22:53
+/*
+ 参数: event,事件代码
+ 描述: 触发一个event事件
+*/
+func (mc *mqttClient) eventAction(event MqttEvent) {
+	defer DeferHandle(false, "znlib.mqtt.eventAction")
+	for _, do := range mc.events {
+		do(event)
 	}
 }
 
@@ -105,6 +168,8 @@ func (mc *mqttClient) Start(msgHandler mt.MessageHandler) error {
 		ErrorCaller(token.Error(), "znlib.mqtt.connect_broker")
 	}
 
+	mc.eventAction(MqttEventServiceStart)
+	//触发服务启动事件
 	return token.Error()
 }
 
@@ -154,8 +219,8 @@ func (mc *mqttClient) Stop() {
 	//断开链路
 	mc.client = nil
 
-	MqttUtils.stopWorkers()
-	//停止辅助类工作对象
+	mc.eventAction(MqttEventServiceStop)
+	//触发服务停止事件
 }
 
 // Publish 2024-01-10 15:32:26
@@ -165,7 +230,7 @@ func (mc *mqttClient) Stop() {
  参数: msg,消息内容
  描述: 向topic发布msg消息
 */
-func (mc *mqttClient) Publish(topic string, qos mqttQos, msg []string) {
+func (mc *mqttClient) Publish(topic string, qos MqttQos, msg []string) {
 	pub := func() {
 		for _, v := range msg {
 			token := mc.client.Publish(topic, qos, false, v)
@@ -176,7 +241,7 @@ func (mc *mqttClient) Publish(topic string, qos mqttQos, msg []string) {
 	}
 
 	if topic == "" {
-		var q mqttQos
+		var q MqttQos
 		useCfg := qos == MqttQosNone
 		//使用配置qos
 
@@ -198,9 +263,9 @@ func (mc *mqttClient) Publish(topic string, qos mqttQos, msg []string) {
  参数: clear,清空原列表
  描述: 新增订阅topics主题
 */
-func (mc *mqttClient) Subscribe(topics map[string]mqttQos, clear bool) error {
+func (mc *mqttClient) Subscribe(topics map[string]MqttQos, clear bool) error {
 	if clear {
-		mc.subTopics = make(map[string]mqttQos, 0)
+		mc.subTopics = make(map[string]MqttQos, 0)
 	}
 
 	for k, v := range topics {

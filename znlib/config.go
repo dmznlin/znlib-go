@@ -466,34 +466,37 @@ func loadMqttConfig(root *etree.Element) {
 	node = root.SelectElement("tls")
 	if node.SelectAttr("use").Value == StrTrue {
 		str = FixPathVar(node.SelectElement("ca").Text())
-		if FileExists(str, false) { //ca exists
-			rootCA, err := os.ReadFile(str)
-			if err != nil {
-				ErrorCaller(err, caller)
-				return
-			}
-
-			cp := x509.NewCertPool()
-			if !cp.AppendCertsFromPEM(rootCA) {
-				ErrorCaller("could not add root crt", caller)
-				return
-			}
-
-			str = FixPathVar(node.SelectElement("crt").Text())
-			key := FixPathVar(node.SelectElement("key").Text())
-			cert, err := tls.LoadX509KeyPair(str, key)
-			if err != nil {
-				ErrorCaller(err, caller)
-			}
-
-			Mqtt.Options.SetTLSConfig(&tls.Config{
-				RootCAs:            cp,
-				ClientAuth:         tls.NoClientCert,
-				ClientCAs:          nil,
-				InsecureSkipVerify: true,
-				Certificates:       []tls.Certificate{cert},
-			})
+		if !FileExists(str, false) { //ca
+			ErrorCaller("tls.ca: file not exists", caller)
+			return
 		}
+
+		rootCA, err := os.ReadFile(str)
+		if err != nil {
+			ErrorCaller(err, caller)
+			return
+		}
+
+		cp := x509.NewCertPool()
+		if !cp.AppendCertsFromPEM(rootCA) {
+			ErrorCaller("could not add root crt", caller)
+			return
+		}
+
+		str = FixPathVar(node.SelectElement("crt").Text())
+		key := FixPathVar(node.SelectElement("key").Text())
+		cert, err := tls.LoadX509KeyPair(str, key)
+		if err != nil {
+			ErrorCaller(err, caller)
+		}
+
+		Mqtt.Options.SetTLSConfig(&tls.Config{
+			RootCAs:            cp,
+			ClientAuth:         tls.NoClientCert,
+			ClientCAs:          nil,
+			InsecureSkipVerify: true,
+			Certificates:       []tls.Certificate{cert},
+		})
 	}
 
 	getMqttTopic(root.SelectElement("subTopic"), true, caller)
@@ -508,7 +511,7 @@ func loadMqttConfig(root *etree.Element) {
  参数: isSub,是否订阅主题
  描述: 读取root中的主题配置
 */
-func getMqttTopic(root *etree.Element, isSub bool, caller string) (topics map[string]mqttQos) {
+func getMqttTopic(root *etree.Element, isSub bool, caller string) (topics map[string]MqttQos) {
 	if root == nil {
 		return nil
 	}
@@ -518,10 +521,10 @@ func getMqttTopic(root *etree.Element, isSub bool, caller string) (topics map[st
 		return nil
 	}
 
-	topics = make(map[string]mqttQos, len(nodes))
+	topics = make(map[string]MqttQos, len(nodes))
 	for _, v := range nodes {
 		str := v.Text()
-		qos := mqttQos(cast.ToInt8(v.SelectAttr("qos").Value))
+		qos := MqttQos(cast.ToInt8(v.SelectAttr("qos").Value))
 		if qos != MqttQos0 && qos != MqttQos1 && qos != MqttQos2 {
 			ErrorCaller(fmt.Sprintf("%s: invalid qos", str), caller)
 			continue

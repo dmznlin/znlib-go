@@ -64,63 +64,70 @@ var MqttUtils = &mqttUtils{
 
 //  ---------------------------------------------------------------------------
 
+// init 2024-02-06 18:40:20
+/*
+ 描述: 单元初始化
+*/
+func init() {
+	Mqtt.RegisterEventHandler(func(event MqttEvent) {
+		switch event {
+		case MqttEventServiceStop:
+			MqttUtils.stopWorkers()
+			//停止辅助类工作对象
+		}
+	})
+}
+
 // RegisterHandler 2024-01-16 14:33:49
 /*
- 参数: hd,句柄
+ 参数: fn,句柄
  描述: 注册一个消息处理句柄
 */
-func (mu *mqttUtils) RegisterHandler(hd MqttHandler) {
-	if IsNil(hd) {
+func (mu *mqttUtils) RegisterHandler(fn MqttHandler) {
+	if IsNil(fn) {
 		return
 	}
 
-	pFun := reflect.ValueOf(hd)
+	Application.SyncLock.Lock()
+	defer Application.SyncLock.Unlock()
+
+	pFun := reflect.ValueOf(fn)
 	for _, v := range mu.msgFun {
 		if reflect.ValueOf(v).Pointer() == pFun.Pointer() { //重复注册
 			return
 		}
 	}
 
-	mu.msgFun = append(mu.msgFun, hd)
+	mu.msgFun = append(mu.msgFun, fn)
 	//注册
 }
-
-// UnregisterHandler 2024-01-16 14:38:21
-/*
- 参数: hd,消息句柄
- 描述: 取消注册hd
-*/
-func (mu *mqttUtils) UnregisterHandler(hd MqttHandler) {
-	pFun := reflect.ValueOf(hd)
-	for i, v := range mu.msgFun {
-		if reflect.ValueOf(v).Pointer() == pFun.Pointer() { //重复注册
-			mu.msgFun = append(mu.msgFun[:i], mu.msgFun[i+1:]...)
-			return
-		}
-	}
-}
-
-//  ---------------------------------------------------------------------------
 
 // NewCommand 2024-01-14 16:33:15
 /*
  描述: 初始化一个命令
 */
-func (mu *mqttUtils) NewCommand() *MqttCommand {
+func (mu *mqttUtils) NewCommand() (cmd *MqttCommand) {
+	cmd = &MqttCommand{}
+	cmd.Reset(false)
+	return cmd
+}
+
+// Reset 2024-02-06 10:01:37
+/*
+ 参数: init,初始化
+ 描述: 重置指令参数
+*/
+func (mc *MqttCommand) Reset(init ...bool) {
+	if init == nil || init[0] { //清空数据
+		*mc = MqttCommand{}
+	}
+
 	no, _ := SerialID.NextStr(false)
 	//业务序列号
 
-	return &MqttCommand{
-		Serial:    no,
-		Sender:    Mqtt.Options.ClientID,
-		Cmd:       0,
-		Ext:       0,
-		Data:      "",
-		Verify:    "",
-		VerifyUse: MqttUtils.msgVerify,
-		Topic:     "",
-		Timeout:   0,
-	}
+	mc.Serial = no
+	mc.Sender = Mqtt.Options.ClientID
+	mc.VerifyUse = MqttUtils.msgVerify
 }
 
 // GetVerify 2024-01-14 15:48:28
@@ -147,7 +154,7 @@ func (mc *MqttCommand) GetVerify() string {
  参数: qos,发送级别
  描述: 将mc发送至topic
 */
-func (mc *MqttCommand) SendCommand(topic string, qos mqttQos) *MqttCommand {
+func (mc *MqttCommand) SendCommand(topic string, qos MqttQos) *MqttCommand {
 	if mc.VerifyUse {
 		if mc.Verify == "" {
 			mc.GetVerify()

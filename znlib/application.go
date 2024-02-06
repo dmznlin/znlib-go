@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -372,21 +373,35 @@ func initApp() {
 		IsLinux:   strings.EqualFold(osName, "linux"),
 		IsWindows: strings.EqualFold(osName, "windows"),
 		HostName:  hostName,
+		SyncLock:  sync.RWMutex{},
 	}
 
 	Application.Ctx, cancelFunc = context.WithCancel(context.Background())
 	//全局取消context,用于控制routine退出
 }
 
-// OnExit 2024-01-11 21:50:25
+// RegisterExitHandler 2024-01-11 21:50:25
 /*
  参数: fn,函数
  描述: 注册fn函数,在系统退出时执行
 */
-func (app *application) OnExit(fn func()) {
+func (app *application) RegisterExitHandler(fn func()) {
+	if IsNil(fn) {
+		return
+	}
+
 	app.SyncLock.Lock()
 	defer app.SyncLock.Unlock()
+	pFun := reflect.ValueOf(fn)
+
+	for _, v := range cancelExtend {
+		if reflect.ValueOf(v).Pointer() == pFun.Pointer() { //重复注册
+			return
+		}
+	}
+
 	cancelExtend = append(cancelExtend, fn)
+	//注册
 }
 
 // Exit 2024-01-11 21:14:24
@@ -397,9 +412,23 @@ func (app *application) Exit() {
 	cancelCall.Do(func() {
 		cancelFunc()
 		//设置退出标记
+		defer DeferHandle(false, "znlib.application.Exit")
+		//拦截 cancelExtend 执行异常
 
 		for _, fn := range cancelExtend { //执行退出操作
 			fn()
 		}
 	})
+}
+
+// SetWorkDir 2024-02-06 11:59:35
+/*
+ 参数: dir,目录
+ 描述: 设置工作目录
+*/
+func (app *application) SetWorkDir(dir string) {
+	AppPath = FixPath(dir)
+	app.ExePath = AppPath
+	app.LogPath = AppPath + "logs" + PathSeparator
+	app.ConfigFile = AppPath + "config.xml"
 }

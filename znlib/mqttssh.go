@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	MqttSSHConn = "conn" //连接
-	MqttSSHExit = "exit" //断开
+	mqttSSHConn = "conn" //连接
+	mqttSSHExit = "exit" //断开
 )
 
 // sshClient ssh配置
@@ -37,7 +37,7 @@ type sshClient struct {
 	exitTimeout time.Duration      //超时退出(秒)
 	caller      string             //远程标识
 	sshCmd      uint8              //ssh指令代码
-	channel     map[string]mqttQos //返回时的通道列表
+	channel     map[string]MqttQos //返回时的通道列表
 
 	client      *ssh.Client    //客户端
 	stdinPipe   io.WriteCloser //输入
@@ -58,7 +58,7 @@ var MqttSSH = &sshClient{
 	exitTimeout: 60,
 	caller:      "",
 	sshCmd:      0,
-	channel:     make(map[string]mqttQos),
+	channel:     make(map[string]MqttQos),
 	client:      nil,
 	stdinPipe:   nil,
 	session:     nil,
@@ -73,10 +73,18 @@ var MqttSSH = &sshClient{
 */
 func init_mqttSSH() {
 	if MqttSSH.enabled {
+		Mqtt.RegisterEventHandler(func(event MqttEvent) {
+			switch event {
+			case MqttEventServiceStop:
+				MqttSSH.closeSSHConn()
+				//注册关闭ssh
+			}
+		})
+
 		MqttUtils.RegisterHandler(doMqttSSHCommand)
 		//注册ssh消息通道
 
-		Application.OnExit(func() {
+		Application.RegisterExitHandler(func() {
 			MqttSSH.closeSSHConn()
 			//注册关闭ssh
 		})
@@ -102,13 +110,13 @@ func doMqttSSHCommand(cmd *MqttCommand) (err error) {
 	}
 
 	switch cmd.Data {
-	case MqttSSHExit: //退出
+	case mqttSSHExit: //退出
 		err = MqttSSH.closeSSHConn()
 		if err != nil {
 			MqttSSH.sendToMqtt(cmd.Sender, []byte(err.Error()))
 		}
 		return err
-	case MqttSSHConn: //连接
+	case mqttSSHConn: //连接
 		if MqttSSH.client == nil { //创建ssh
 			err = MqttSSH.newSSHConn()
 			if err != nil {
@@ -146,6 +154,24 @@ func (sc *sshClient) sendToMqtt(receiver string, data []byte) {
 		k = strings.ReplaceAll(k, "$id", receiver)
 		cmd.SendCommand(k, v)
 	}
+}
+
+// Connect 2024-02-06 19:10:17
+/*
+ 参数: client,mqtt.clientID
+ 描述: 向client发送连接请求
+*/
+func (sc *sshClient) Connect(client string) {
+	sc.sendToMqtt(client, []byte(mqttSSHConn))
+}
+
+// Disconnect 2024-02-06 19:11:16
+/*
+ 参数: client,mqtt.clientID
+ 描述: 向client发送断开请求
+*/
+func (sc *sshClient) Disconnect(client string) {
+	sc.sendToMqtt(client, []byte(mqttSSHExit))
 }
 
 // newSSHConn 2024-02-01 20:38:05
@@ -191,6 +217,10 @@ func (sc *sshClient) newSSHConn() (err error) {
  描述: 关闭连接
 */
 func (sc *sshClient) closeSSHConn() (err error) {
+	if sc.client == nil { //没有连接
+		return nil
+	}
+
 	if !IsNil(sc.fromMqtt) { //关闭接收通道
 		close(sc.fromMqtt)
 	}
@@ -257,12 +287,13 @@ func (sc *sshClient) startSSHWorker() {
 	/*
 		在终端处于 Cooked 模式时，当你输入一些字符后，默认是被当前终端 cache 住的，在你敲了回车之前这些文本都在 cache 中，这样允许应用程序做
 		一些处理，比如捕获 Cntl-D 等按键，这时候就会出现敲回车后本地终端帮你打印了一下，导致出现类似回显的效果；当设置终端为 raw 模式后，所有的
-		输入将不被 cache，而是发送到应用程序，在我们的代码中表现为通过 io.Copy 直接发送到了远端 shell 程序
+		输入将不被 cache，而是发送到应用程序.
 	*/
 
 	termW, termH, err := terminal.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
-		return
+		termH = 24
+		termW = 80
 	}
 
 	termType := os.Getenv("TERM")
@@ -276,6 +307,8 @@ func (sc *sshClient) startSSHWorker() {
 		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
 	}
 
+	termH = 24
+	termW = 80
 	if err = sc.session.RequestPty(termType, termH, termW, modes); err != nil {
 		ErrorCaller(err, caller)
 		return

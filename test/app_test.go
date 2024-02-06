@@ -8,7 +8,7 @@ import (
 
 // znlib初始化
 var _ = InitLib(func() {
-	Application.ConfigFile = `D:\Mywork\KTManager\znlib-go\main\bin\config.xml`
+	Application.SetWorkDir(`D:\Mywork\KTManager\znlib-go\main\bin\`)
 }, nil)
 
 func Test_FixPath(t *testing.T) {

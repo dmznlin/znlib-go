@@ -5,11 +5,11 @@ import (
 	. "github.com/dmznlin/znlib-go/znlib"
 	"github.com/shopspring/decimal"
 	"strconv"
-	"time"
 )
 
 func main() {
 	InitLib(nil, nil)
+	Application.IsDebug = true
 	fmt.Println(StrCopy("dmzn", 3, 3))
 	Info("hello only")
 	Info("hello with fields", LogFields{"name": "dmzn", "age": 15}, LogFields{"act": "eat"})
@@ -30,11 +30,7 @@ func main() {
 		Info(v.Div(decimal.NewFromInt32(3)).String())
 	}
 
-	Mqtt.StartWithUtils(func(cmd *MqttCommand) error {
-		Info(cmd.Topic)
-		time.Sleep(5 * time.Second)
-		return nil
-	})
+	Mqtt.StartWithUtils(nil)
 
 	WaitSystemExit(func() error {
 		Mqtt.Stop()
