@@ -213,15 +213,16 @@ func (w *serialIDWorker) TimeID(year ...bool) string {
  注意: 该函数依赖redis服务,使用相同redis.db生成的id唯一.
 */
 func (w *serialIDWorker) DateID(key string, idlen int, prefix ...string) (id string, err error) {
-	defer DeferHandle(false, "znlib.DateID", func(e error) {
+	caller := "znlib.idgen.DateID"
+	defer DeferHandle(false, caller, func(e error) {
 		if e != nil {
-			err = ErrorMsg(e, "serialIDWorker.DateID has error.")
+			err = ErrorMsg(e, caller)
 		}
 	})
 
 	lock := RedisClient.Lock(Redis_SyncLock_DateID, 3*time.Second, 10*time.Second)
 	if lock.err != nil {
-		return "", ErrorMsg(lock.err, "znlib.DateID")
+		return "", ErrorMsg(lock.err, caller)
 	}
 	defer lock.Unlock()
 
@@ -242,7 +243,7 @@ func (w *serialIDWorker) DateID(key string, idlen int, prefix ...string) (id str
 	if RedisClient.Exists(Application.Ctx, key).Val() == 1 {
 		vals, err = RedisClient.HMGet(Application.Ctx, key, field_base, field_date).Result()
 		if err != nil {
-			return "", ErrorMsg(err, "znlib.DateID")
+			return "", ErrorMsg(err, caller)
 		}
 
 		date := vals[1].(string)
@@ -321,7 +322,7 @@ func (w *randomIDWorker) UUID(version byte) (id string, err error) {
 	case uuid.V7:
 		uid, err = uuid.NewV7(uuid.NanosecondPrecision)
 	default:
-		err = ErrorMsg(nil, "znlib.UUID: invalid version.")
+		err = ErrorMsg(nil, "znlib.idgen.UUID: invalid version.")
 	}
 
 	if err == nil {

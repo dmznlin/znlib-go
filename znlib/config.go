@@ -82,7 +82,7 @@ func initLibrary() {
 	if FileExists(Application.ConfigFile, false) {
 		xml := etree.NewDocument()
 		if err := xml.ReadFromFile(Application.ConfigFile); err != nil {
-			ErrorCaller(err, "znlib.initLibrary")
+			ErrorCaller(err, "znlib.config.initLibrary")
 			return
 		}
 
@@ -233,7 +233,7 @@ func loadRedisConfig(root *etree.Element) {
 		if err == nil {
 			redisConfig.password = string(buf)
 		} else {
-			ErrorCaller(err, "znlib.loadRedisConfig")
+			ErrorCaller(err, "znlib.config.loadRedisConfig")
 			return
 		}
 	}
@@ -379,7 +379,7 @@ func loadMqttConfig(root *etree.Element) {
 		return
 	}
 
-	caller := "znlib.loadMqttConfig"
+	caller := "znlib.config.loadMqttConfig"
 	var val int
 	var err error
 	var str string
@@ -555,7 +555,7 @@ func loadMqttSSHConfig(root *etree.Element) {
 		return
 	}
 
-	caller := "znlib.loadMqttSSHConfig"
+	caller := "znlib.config.loadMqttSSHConfig"
 	var str string
 	MqttSSH.enabled = root.SelectAttr("enable").Value == StrTrue
 

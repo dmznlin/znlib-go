@@ -165,7 +165,7 @@ func (mc *MqttCommand) SendCommand(topic string, qos MqttQos) *MqttCommand {
 
 	data, err := json.Marshal(mc)
 	if err != nil {
-		ErrorCaller(err, "znlib.mqtt.SendCommand")
+		ErrorCaller(err, "znlib.mqttutils.SendCommand")
 		return nil
 	}
 
@@ -245,7 +245,7 @@ func (mc *MqttCommand) waiter() (mw *mqttWaiter) {
 		}
 
 		waiterBuf = append(waiterBuf, mw)
-		Info(fmt.Sprintf("znlib.mqtt.waiter: buffer size %d", len(waiterBuf)))
+		Info(fmt.Sprintf("znlib.mqttutils.waiter: buffer size %d", len(waiterBuf)))
 	} else {
 	loop:
 		for true { //清空原有信号
@@ -314,7 +314,7 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
 		return
 	}
 
-	caller := "znlib.mqtt.OnMessge"
+	caller := "znlib.mqttutils.OnMessge"
 	defer DeferHandle(false, caller)
 	//捕捉异常
 
@@ -409,7 +409,7 @@ func (mu *mqttUtils) addWorkers() {
 
 	worker := func(args ...interface{}) {
 		workerID, _ := args[0].(int)
-		caller := fmt.Sprintf("znlib.mqtt.worker[%d]", workerID)
+		caller := fmt.Sprintf("znlib.mqttutils.worker[%d]", workerID)
 		//对象标识
 		var isOK bool
 		var cmd *MqttCommand
@@ -478,9 +478,9 @@ func (mu *mqttUtils) stopWorkers() {
 	}
 
 	mu.enabled = false
-	Info("znlib.mqtt.stop: wait worker exit")
+	Info("znlib.mqttutils.stopWorkers: wait worker exit")
 
 	close(mu.msgDone)
 	mu.workerGroup.Wait()
-	Info("znlib.mqtt.stop: all worker has exit")
+	Info("znlib.mqttutils.stopWorkers: all worker has exit")
 }

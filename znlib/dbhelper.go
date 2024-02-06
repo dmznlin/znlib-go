@@ -68,7 +68,7 @@ func init_db() {
 func (dm *DbUtils) GetDB(dbname string) (db *sqlx.DB, err error) {
 	cfg, ok := dm.DBList[dbname]
 	if !ok {
-		return nil, ErrorMsg(nil, fmt.Sprintf(`znlib.GetDB: "%s" not invalid.`, dbname))
+		return nil, ErrorMsg(nil, fmt.Sprintf(`znlib.dbhelper.GetDB: "%s" not invalid.`, dbname))
 	}
 
 	dm.sync.RLock()
@@ -114,11 +114,11 @@ func (dc *DBConfig) ApplyDSN() {
 func (dm *DbUtils) UpdateDSN(dbname, dsn string) (err error) {
 	cfg, ok := dm.DBList[dbname]
 	if !ok {
-		return ErrorMsg(nil, fmt.Sprintf(`znlib.ApplyDSN: "%s" not invalid.`, dbname))
+		return ErrorMsg(nil, fmt.Sprintf(`znlib.dbhelper.ApplyDSN: "%s" not invalid.`, dbname))
 	}
 
 	dm.sync.Lock()
-	defer DeferHandle(false, "znlib.ApplyDSN", func(e error) {
+	defer DeferHandle(false, "znlib.dbhelper.ApplyDSN", func(e error) {
 		dm.sync.Unlock()
 		if e != nil {
 			err = e

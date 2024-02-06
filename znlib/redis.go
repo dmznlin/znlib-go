@@ -44,7 +44,7 @@ var RedisCluster *redis.ClusterClient = nil
 */
 func init_redis() {
 	if len(redisConfig.servers) < 1 {
-		Error("znlib.init_redis: server list empty.")
+		Error("znlib.redis.init_redis: server list empty.")
 		return
 	}
 

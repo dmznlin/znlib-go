@@ -33,7 +33,7 @@ func TestTryFinally(t *testing.T) {
 }
 
 func TestWaitFor(t *testing.T) {
-	dura := 3 * time.Second
+	dura := 50 * time.Millisecond
 	end := time.Now().Add(dura)
 	WaitFor(dura, func() bool {
 		Info("in func.")

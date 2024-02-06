@@ -103,7 +103,7 @@ func (cyp *Encrypter) Encrypt(data []byte, encode bool, iv ...[]byte) (dst []byt
 	case Encrypt3DES_CBC:
 		dst, err = openssl.Des3CBCEncrypt(data, cyp.Key, iv_data, cyp.Padding)
 	default:
-		return nil, ErrorMsg(nil, "znlib.Encrypt: invalid method.")
+		return nil, ErrorMsg(nil, "znlib.encrypt.Encrypt: invalid method.")
 	}
 
 	if err == nil && encode {
@@ -150,7 +150,7 @@ func (cyp *Encrypter) Decrypt(data []byte, encode bool, iv ...[]byte) (dst []byt
 	case Encrypt3DES_CBC:
 		dst, err = openssl.Des3CBCDecrypt(data, cyp.Key, iv_data, cyp.Padding)
 	default:
-		return nil, ErrorMsg(nil, "znlib.Decrypt: invalid method.")
+		return nil, ErrorMsg(nil, "znlib.encrypt.Decrypt: invalid method.")
 	}
 
 	return
@@ -169,7 +169,7 @@ func (cyp *Encrypter) EncodeBase64(data []byte) (dst []byte, err error) {
 	case EncryptBase64_URl:
 		encoding = base64.URLEncoding
 	default:
-		return nil, ErrorMsg(nil, "znlib.EncodeBase64: invalid method.")
+		return nil, ErrorMsg(nil, "znlib.encrypt.EncodeBase64: invalid method.")
 	}
 
 	dst = make([]byte, encoding.EncodedLen(len(data)))
@@ -190,7 +190,7 @@ func (cyp *Encrypter) DecodeBase64(data []byte) (dst []byte, err error) {
 	case EncryptBase64_URl:
 		encoding = base64.URLEncoding
 	default:
-		return nil, ErrorMsg(nil, "znlib.DecodeBase64: invalid method.")
+		return nil, ErrorMsg(nil, "znlib.encrypt.DecodeBase64: invalid method.")
 	}
 
 	var num int

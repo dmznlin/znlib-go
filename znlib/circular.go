@@ -56,7 +56,7 @@ type CircularQueue[T any] struct {
 */
 func NewCircularQueue[T any](mode CircularMode, cap int, sync bool, max ...int) *CircularQueue[T] {
 	if mode > Circular_FILO_FixSize {
-		ErrorCaller("invalid mode", "znlib.NewCircularQueue")
+		ErrorCaller("invalid mode", "znlib.circular.NewCircularQueue")
 		return nil
 	}
 
@@ -103,7 +103,7 @@ func NewCircularQueue[T any](mode CircularMode, cap int, sync bool, max ...int) 
 */
 func (cq *CircularQueue[T]) Push(values ...T) error {
 	if values == nil { //empty
-		return ErrorMsg(nil, "znlib.CircularQueue.Push: no value to push.")
+		return ErrorMsg(nil, "znlib.circular.Push: no value to push.")
 	}
 
 	cq.lock.Lock()
@@ -124,7 +124,7 @@ func (cq *CircularQueue[T]) Push(values ...T) error {
 				cq.tail.data = val
 			} else {
 				if cq.num >= cq.max { //超出最大容量
-					return ErrorMsg(nil, "znlib.CircularQueue.Push: out of max capacity.")
+					return ErrorMsg(nil, "znlib.circular.Push: out of max capacity.")
 				}
 
 				cq.tail.next = &circularData[T]{prior: cq.tail, next: cq.tail.next} //插入新元素

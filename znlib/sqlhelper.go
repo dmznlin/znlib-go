@@ -66,9 +66,10 @@ func SQLFields(obj interface{}, exclude ...string) string {
  描述: 使用obj构建insert sql语句
 */
 func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType) (sql string, err error) {
-	defer DeferHandle(false, "znlib.SQLInsert", func(e error) {
+	caller := "znlib.sqlhelper.SQLInsert"
+	defer DeferHandle(false, caller, func(e error) {
 		if e != nil {
-			err = ErrorMsg(err, "znlib.SQLInsert")
+			err = ErrorMsg(err, caller)
 		}
 	})
 
@@ -134,8 +135,8 @@ func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType)
 	}
 
 	if nValue.TableName == "" {
-		str := fmt.Sprintf("znlib.SQLInsert: struct [%s] no [table] tag.", ReflectValue(obj).Type().Name())
-		return "", errors.New(str)
+		str := fmt.Sprintf(": struct [%s] no [table] tag.", ReflectValue(obj).Type().Name())
+		return "", errors.New(caller + str)
 	}
 
 	sql = fmt.Sprintf("insert into %s(%s) values(%s)", nValue.TableName,
@@ -152,9 +153,10 @@ func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType)
  描述: 使用obj构建update sql语句
 */
 func SQLUpdate(obj interface{}, where string, getVal GetStructFieldValue, dbType ...SqlDbType) (sql string, err error) {
-	defer DeferHandle(false, "znlib.SQLUpdate", func(e error) {
+	caller := "znlib.sqlhelper.SQLUpdate"
+	defer DeferHandle(false, caller, func(e error) {
 		if e != nil {
-			err = ErrorMsg(e, "znlib.SQLUpdate")
+			err = ErrorMsg(e, caller)
 		}
 	})
 
@@ -210,8 +212,8 @@ func SQLUpdate(obj interface{}, where string, getVal GetStructFieldValue, dbType
 	}
 
 	if nValue.TableName == "" {
-		str := fmt.Sprintf("znlib.SQLUpdate: struct [%s] no [table] tag.", ReflectValue(obj).Type().Name())
-		return "", errors.New(str)
+		str := fmt.Sprintf(": struct [%s] no [table] tag.", ReflectValue(obj).Type().Name())
+		return "", errors.New(caller + str)
 	}
 
 	sql = fmt.Sprintf("update %s set %s%s", nValue.TableName,

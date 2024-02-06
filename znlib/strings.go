@@ -287,7 +287,7 @@ func StrIF(ok bool, array ...string) string {
  描述: 使用str构建一个字节
 */
 func Str2Bit(str string) (ret byte) {
-	defer DeferHandle(false, "znlib.Str2Bit", func(err error) {
+	defer DeferHandle(false, "znlib.strings.Str2Bit", func(err error) {
 		if err != nil {
 			ret = 0
 		}
@@ -354,7 +354,7 @@ func Str2Pinyin(str string, named ...bool) string {
  描述: 使用fmt格式转换dt为字符串
 */
 func DateTime2Str(dt time.Time, fmt ...string) (ret string) {
-	defer DeferHandle(false, "znlib.DateTime2Str", func(err error) {
+	defer DeferHandle(false, "znlib.strings.DateTime2Str", func(err error) {
 		if err != nil {
 			ret = time.Now().Format(LayoutDateTime)
 		}
@@ -389,7 +389,7 @@ func DateTime2Str(dt time.Time, fmt ...string) (ret string) {
  描述: 使用fmt格式转换dt为时间值
 */
 func Str2DateTime(dt string, fmt ...string) (ret time.Time) {
-	defer DeferHandle(false, "znlib.Str2DateTime", func(err error) {
+	defer DeferHandle(false, "znlib.strings.Str2DateTime", func(err error) {
 		if err != nil {
 			ret = time.Now()
 		}

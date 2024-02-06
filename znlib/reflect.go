@@ -8,8 +8,8 @@ package znlib
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/shopspring/decimal" //浮点数计算
 	"reflect"
 	"strconv"
@@ -207,7 +207,7 @@ func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
 	}
 
 	if sw == nil { //no walker
-		str := "znlib.WalkStruct: walker is nil"
+		str := "znlib.reflect.WalkStruct: walker is nil"
 		if curentLevel == 1 {
 			Error(str)
 		}
@@ -217,7 +217,7 @@ func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
 	objValue := ReflectValue(obj)
 	objType := objValue.Type()
 	if objValue.Kind() != reflect.Struct { //invalid type
-		str := fmt.Sprintf("znlib.WalkStruct: [%s] is not struct", objType.Name())
+		str := fmt.Sprintf("znlib.reflect.WalkStruct: [%s] is not struct", objType.Name())
 		if curentLevel == 1 {
 			Error(str)
 		}

@@ -128,7 +128,7 @@ func FixPathVar(dir string) string {
  描述: 创建dir目录
 */
 func MakeDir(dir string) {
-	defer DeferHandle(false, "znlib.MakeDir")
+	defer DeferHandle(false, "znlib.application.MakeDir")
 	err := os.MkdirAll(dir, 755)
 
 	if err != nil {

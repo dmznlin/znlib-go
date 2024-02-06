@@ -6,8 +6,7 @@
 package znlib
 
 import (
-	"errors"
-	"fmt"
+	"github.com/pkg/errors"
 	"sync"
 	"time"
 )
@@ -50,8 +49,8 @@ func (g *RoutineGroup) RunSafe(fn routineFunction, args ...interface{}) {
 	g.waitGroup.Add(1)
 
 	go func() {
-		defer g.waitGroup.Done()                               //2.done
-		defer DeferHandle(false, "znlib.RoutineGroup.RunSafe") //1.log first
+		defer g.waitGroup.Done()                           //2.done
+		defer DeferHandle(false, "znlib.routines.RunSafe") //1.log first
 		fn(args...)
 	}()
 }
@@ -75,18 +74,9 @@ func (g *RoutineGroup) WaitRun(timeout time.Duration, fn routineFunction, args .
 	done := make(chan error, 1)
 	//用于接收异常
 	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				val, ok := err.(error)
-				if ok {
-					done <- val
-				} else {
-					done <- errors.New(fmt.Sprintf("znlib.WaitRun: %v", err))
-				}
-			} else {
-				done <- nil
-			}
-		}()
+		defer DeferHandle(false, "znlib.routines.WaitRun", func(err error) {
+			done <- err
+		})
 
 		fn(args...)
 	}()
@@ -95,6 +85,6 @@ func (g *RoutineGroup) WaitRun(timeout time.Duration, fn routineFunction, args .
 	case err := <-done:
 		return err
 	case <-time.After(timeout):
-		return errors.New("znlib.WaitRun: timeout.")
+		return errors.New("znlib.routines.WaitRun: timeout.")
 	}
 }
