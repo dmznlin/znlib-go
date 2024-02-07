@@ -592,7 +592,7 @@ func loadMqttSSHConfig(root *etree.Element) {
 
 	str = StrTrim(node.SelectElement("command").Text())
 	if str != "" {
-		MqttSSH.sshCmd = cast.ToUint8(str)
+		MqttSSH.SshCmd = cast.ToUint8(str)
 	}
 
 	node = root.SelectElement("timeout")

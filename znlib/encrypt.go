@@ -10,11 +10,11 @@ import (
 	"github.com/forgoer/openssl"
 )
 
-// EncryptFlag 加密标识
-type EncryptFlag = byte
+// EncryptMethod 加密算法
+type EncryptMethod = byte
 
 const (
-	EncryptAES_ECB EncryptFlag = iota
+	EncryptAES_ECB EncryptMethod = iota
 	EncryptAES_CBC
 	//AES: 密钥的长度可以是 16/24/32 个字符（128/192/256 位）
 
@@ -32,9 +32,9 @@ const (
 )
 
 type Encrypter struct {
-	Key     []byte      //秘钥
-	Padding string      //填充
-	Method  EncryptFlag //算法
+	Key     []byte        //秘钥
+	Padding string        //填充
+	Method  EncryptMethod //算法
 }
 
 // NewEncrypter 2022-07-27 21:25:31
@@ -44,7 +44,7 @@ type Encrypter struct {
  参数: padding,填充模式(PKCS5_PADDING,PKCS7_PADDING,ZEROS_PADDING)
  描述: 生成编码器
 */
-func NewEncrypter(method EncryptFlag, key []byte, padding ...string) *Encrypter {
+func NewEncrypter(method EncryptMethod, key []byte, padding ...string) *Encrypter {
 	var pad string
 	if padding == nil {
 		pad = openssl.PKCS7_PADDING
@@ -88,7 +88,10 @@ func (cyp *Encrypter) Encrypt(data []byte, encode bool, iv ...[]byte) (dst []byt
 		} else {
 			iv_data = iv[0]
 		}
+	default:
+		iv_data = make([]byte, 0)
 	}
+
 	switch cyp.Method {
 	case EncryptAES_ECB:
 		dst, err = openssl.AesECBEncrypt(data, cyp.Key, cyp.Padding)
@@ -135,7 +138,10 @@ func (cyp *Encrypter) Decrypt(data []byte, encode bool, iv ...[]byte) (dst []byt
 		} else {
 			iv_data = iv[0]
 		}
+	default:
+		iv_data = make([]byte, 0)
 	}
+
 	switch cyp.Method {
 	case EncryptAES_ECB:
 		dst, err = openssl.AesECBDecrypt(data, cyp.Key, cyp.Padding)

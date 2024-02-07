@@ -36,7 +36,7 @@ type sshClient struct {
 	connTimeout time.Duration      //连接超时(毫秒)
 	exitTimeout time.Duration      //超时退出(秒)
 	caller      string             //远程标识
-	sshCmd      uint8              //ssh指令代码
+	SshCmd      uint8              //ssh指令代码
 	channel     map[string]MqttQos //返回时的通道列表
 
 	client      *ssh.Client    //客户端
@@ -57,7 +57,7 @@ var MqttSSH = &sshClient{
 	connTimeout: 3000,
 	exitTimeout: 60,
 	caller:      "",
-	sshCmd:      0,
+	SshCmd:      0,
 	channel:     make(map[string]MqttQos),
 	client:      nil,
 	stdinPipe:   nil,
@@ -97,7 +97,7 @@ func init_mqttSSH() {
  描述: 处理远程发送的ssh指令
 */
 func doMqttSSHCommand(cmd *MqttCommand) (err error) {
-	if cmd.Cmd != MqttSSH.sshCmd { //非ssh指令
+	if cmd.Cmd != MqttSSH.SshCmd { //非ssh指令
 		if Application.IsDebug {
 			Info("znlib.mqttssh.doMqttSSHCommand: invalid ssh command")
 		}
@@ -146,7 +146,7 @@ func doMqttSSHCommand(cmd *MqttCommand) (err error) {
 */
 func (sc *sshClient) sendToMqtt(receiver string, data []byte) {
 	cmd := MqttUtils.NewCommand()
-	cmd.Cmd = sc.sshCmd
+	cmd.Cmd = sc.SshCmd
 	cmd.Data = string(data)
 	cmd.GetVerify()
 

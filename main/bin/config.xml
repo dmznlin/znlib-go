@@ -69,10 +69,10 @@
                 <!-- 用户密码(DES) -->
                 <password>sMGRVV9wABI=</password>
                 <!-- 主机地址 -->
-                <host>192.168.2.19</host>
+                <host>192.168.2.201</host>
                 <!-- 连接配置(base64) -->
                 <dsn>
-                    Provider=SQLOLEDB;Initial Catalog=RunBase;
+                    Provider=SQLOLEDB;Initial Catalog=HXWeb;
                     user id=$user;password=$pwd;Data Source=$host
                 </dsn>
             </db>
