@@ -463,6 +463,19 @@ func loadMqttConfig(root *etree.Element) {
 		MqttUtils.msgDelay = time.Duration(val) * time.Second
 	}
 
+	tmp = node.SelectElement("zipData")
+	str = StrTrim(tmp.Text())
+	if str != "" {
+		MqttUtils.msgZip = str == StrTrue
+		//启用数据压缩
+	}
+
+	str = StrTrim(tmp.SelectAttr("min").Value)
+	if str != "" {
+		MqttUtils.msgZipLen = cast.ToInt(str)
+		//数据超过min长度时开始压缩
+	}
+
 	node = root.SelectElement("tls")
 	if node.SelectAttr("use").Value == StrTrue {
 		str = FixPathVar(node.SelectElement("ca").Text())

@@ -6,8 +6,12 @@
 package znlib
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"github.com/forgoer/openssl"
+	"github.com/pkg/errors"
+	"io"
 )
 
 // EncryptMethod 加密算法
@@ -203,4 +207,67 @@ func (cyp *Encrypter) DecodeBase64(data []byte) (dst []byte, err error) {
 	dst = make([]byte, encoding.DecodedLen(len(data)))
 	num, err = encoding.Decode(dst, data)
 	return dst[:num], err
+}
+
+//  ---------------------------------------------------------------------------
+
+// ZipUtils zip算法压缩器
+type ZipUtils struct{}
+
+// NewZipper 2024-02-08 15:45:42
+/*
+ 描述: 返回支持zip算法的压缩器
+*/
+func NewZipper() *ZipUtils {
+	return &ZipUtils{}
+}
+
+// ZipData 2024-02-08 14:38:58
+/*
+ 参数: data,数据
+ 描述: 使用zip算法压缩数据
+*/
+func (z *ZipUtils) ZipData(data []byte) (zip []byte, err error) {
+	buf := new(bytes.Buffer)
+	writer := gzip.NewWriter(buf)
+	_, err = writer.Write(data)
+
+	err = ErrorJoin(err, writer.Close())
+	if err != nil {
+		ErrorCaller(err, "znlib.encrypt.ZipData")
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+// UnzipData 2024-02-08 14:39:14
+/*
+ 参数: data,数据
+ 描述: 使用zip算法解压缩
+*/
+func (z *ZipUtils) UnzipData(data []byte) (zip []byte, err error) {
+	caller := "znlib.encrypt.UnzipData"
+	buf := bytes.NewReader(data)
+	reader, err := gzip.NewReader(buf)
+
+	if err != nil {
+		ErrorCaller(err, caller)
+		return nil, err
+	}
+
+	defer func() {
+		err = ErrorJoin(err, reader.Close())
+		if err != nil {
+			ErrorCaller(err, caller)
+		}
+	}()
+
+	var dt []byte
+	dt, err = io.ReadAll(reader)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return nil, err
+	}
+
+	return dt, nil
 }

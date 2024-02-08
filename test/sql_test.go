@@ -43,11 +43,11 @@ func TestGetDB(t *testing.T) {
 			if err == nil {
 				var users = struct {
 					Name string `db:"U_Name"`
-					ID   string `db:"U_Account"`
+					ID   string `db:"U_Phone"`
 					Mail string `db:"U_Mail"`
 				}{}
 
-				err = conn.Get(&users, fmt.Sprintf("select %s from Sys_Users", SQLFields(&users)))
+				err = conn.Get(&users, fmt.Sprintf("select %s from Sys_User", SQLFields(&users)))
 				if err == nil {
 					Info(fmt.Sprintf("User:%s ID:%s Mail:%s", users.Name, users.ID, users.Mail))
 				} else {

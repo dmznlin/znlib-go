@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"github.com/dmznlin/znlib-go/znlib"
 	"testing"
 )
@@ -55,4 +56,24 @@ func TestDes(t *testing.T) {
 	} else {
 		t.Log(string(data))
 	}
+
+	//------------------------------------------------------------------------------------------------------------------
+	data, err = znlib.NewZipper().ZipData(key)
+	if err != nil {
+		t.Errorf("znlib.Zipper.ZipData wrong")
+	}
+
+	znlib.Info(fmt.Sprintf("%d -> %d", len(key), len(data)))
+
+	var buf []byte
+	buf, err = znlib.NewEncrypter(znlib.EncryptBase64_STD, nil).EncodeBase64(data)
+	if !znlib.Equal(buf, []byte("H4sIAAAAAAAA/zI0MjYxNTO3sDSAsAABAAD//7fNXx4QAAAA")) {
+		t.Errorf("znlib.Zipper.ZipData wrong")
+	}
+
+	buf, err = znlib.NewZipper().UnzipData(data)
+	if err != nil || !znlib.Equal(buf, key) {
+		t.Errorf("znlib.Zipper.UnzipData wrong")
+	}
+
 }

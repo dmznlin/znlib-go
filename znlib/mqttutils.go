@@ -16,6 +16,11 @@ import (
 	"time"
 )
 
+const (
+	mqttZipTail      = "!z.n_z-i+p"     //压缩数据尾部标识
+	mqttZipTagLength = len(mqttZipTail) //压缩标识长度
+)
+
 // MqttCommand 命令结构
 type MqttCommand struct {
 	Serial string `json:"no"` //业务流水
@@ -38,7 +43,9 @@ type mqttUtils struct {
 	enabled     bool          //辅助类已启用
 	msgKey      string        //消息加密密钥
 	msgVerify   bool          //消息需要验证
-	msgFun      []MqttHandler // 消息处理链
+	msgZip      bool          //数据需要压缩
+	msgZipLen   int           //数据长度:超过该长度才会压缩
+	msgFun      []MqttHandler //消息处理链
 	msgDone     chan struct{} //消息待处理信号
 	msgDelay    time.Duration //消息处理延迟
 	workerNum   int           //工作对象个数
@@ -53,6 +60,8 @@ var MqttUtils = &mqttUtils{
 	enabled:     false,
 	msgKey:      "mqtt.key",
 	msgVerify:   false,
+	msgZip:      false,
+	msgZipLen:   100,
 	msgFun:      make([]MqttHandler, 0),
 	msgDone:     nil,
 	msgDelay:    1 * time.Second,
@@ -163,10 +172,22 @@ func (mc *MqttCommand) SendCommand(topic string, qos MqttQos) *MqttCommand {
 		mc.Verify = ""
 	}
 
+	caller := "znlib.mqttutils.SendCommand"
 	data, err := json.Marshal(mc)
 	if err != nil {
-		ErrorCaller(err, "znlib.mqttutils.SendCommand")
+		ErrorCaller(err, caller)
 		return nil
+	}
+
+	if MqttUtils.msgZip && len(data) >= MqttUtils.msgZipLen { //压缩数据
+		data, err = NewZipper().ZipData(data)
+		if err != nil {
+			ErrorCaller(err, caller)
+			return nil
+		}
+
+		data = append(data, []byte(mqttZipTail)...)
+		//添加压缩标识
 	}
 
 	var waiter *mqttWaiter
@@ -175,7 +196,7 @@ func (mc *MqttCommand) SendCommand(topic string, qos MqttQos) *MqttCommand {
 		defer waiter.Clear()
 	}
 
-	Mqtt.Publish(topic, qos, []string{string(data)})
+	Mqtt.Publish(topic, qos, [][]byte{data})
 	//发送数据
 	if waiter != nil {
 		return waiter.WaitFor(false)
@@ -314,12 +335,38 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
 		return
 	}
 
+	newMsg := msg.Payload()
+	newLen := len(newMsg)
+	if newLen < 2 { //空json长度: {}
+		return
+	}
+
 	caller := "znlib.mqttutils.OnMessge"
 	defer DeferHandle(false, caller)
 	//捕捉异常
 
+	if newMsg[0] != '{' { //非json结构
+		tagStart := newLen - mqttZipTagLength
+		if tagStart > 0 && string(newMsg[tagStart:]) == mqttZipTail { //判断是否压缩
+			var err error
+			newMsg = newMsg[0:tagStart] //去掉标识
+			newMsg, err = NewZipper().UnzipData(newMsg)
+
+			if err != nil {
+				ErrorCaller(err, caller)
+				return
+			}
+
+			if Application.IsDebug {
+				Info(fmt.Sprintf(caller+".Unzip: %d -> %d", newLen, len(newMsg)))
+				//打印压缩信息
+			}
+		}
+	}
+
+	//  ---------------------------------------------------------------------------
 	if Application.IsDebug {
-		Info(fmt.Sprintf(caller+": %s,%s", msg.Topic(), msg.Payload()))
+		Info(fmt.Sprintf(caller+": %s,%s", msg.Topic(), newMsg))
 		//msg content
 
 		rNum, rCap := mu.msgRecv.Size()
@@ -332,8 +379,7 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
 		cmd = &MqttCommand{}
 	}
 
-	//  ---------------------------------------------------------------------------
-	err := json.Unmarshal(msg.Payload(), cmd)
+	err := json.Unmarshal(newMsg, cmd)
 	if err != nil {
 		pe := mu.msgIdle.Push(cmd) //回收
 		if pe != nil {
@@ -428,7 +474,7 @@ func (mu *mqttUtils) addWorkers() {
 
 			hand := func() { //发布消息
 				defer func() {
-					mu.msgIdle.Push(cmd)
+					_ = mu.msgIdle.Push(cmd)
 					//放回空闲队列
 
 					err := recover()

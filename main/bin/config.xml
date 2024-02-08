@@ -133,6 +133,8 @@
             <workerNum>2</workerNum>
             <!-- 消息延迟警告(秒) -->
             <delayWarn>1</delayWarn>
+            <!--  压缩数据:长度超过min启用压缩 -->
+            <zipData min="200">true</zipData>
         </utils>
         <!-- 订阅主题:只读不写,$id自动替换为clientID -->
         <subTopic>

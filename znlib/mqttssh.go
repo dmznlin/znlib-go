@@ -44,7 +44,7 @@ type sshClient struct {
 	session     *ssh.Session   //会话
 	workerGroup *RoutineGroup  //工作对象组
 
-	fromMqtt chan struct{}          //有来自mqtt的数据
+	fromMqtt chan struct{}          //mqtt数据到达信号
 	dataRecv *CircularQueue[string] //已接收消息队列
 }
 
@@ -113,14 +113,14 @@ func doMqttSSHCommand(cmd *MqttCommand) (err error) {
 	case mqttSSHExit: //退出
 		err = MqttSSH.closeSSHConn()
 		if err != nil {
-			MqttSSH.sendToMqtt(cmd.Sender, []byte(err.Error()))
+			MqttSSH.SendData(cmd.Sender, []byte(err.Error()))
 		}
 		return err
 	case mqttSSHConn: //连接
 		if MqttSSH.client == nil { //创建ssh
 			err = MqttSSH.newSSHConn()
 			if err != nil {
-				MqttSSH.sendToMqtt(cmd.Sender, []byte(err.Error()))
+				MqttSSH.SendData(cmd.Sender, []byte(err.Error()))
 				return err
 			}
 
@@ -138,20 +138,19 @@ func doMqttSSHCommand(cmd *MqttCommand) (err error) {
 	return nil
 }
 
-// sendToMqtt 2024-02-04 13:39:17
+// SendData 2024-02-04 13:39:17
 /*
- 参数: receiver,接收者标识
+ 参数: client,接收者标识
  参数: data,数据
  描述: 将data发送至receiver
 */
-func (sc *sshClient) sendToMqtt(receiver string, data []byte) {
+func (sc *sshClient) SendData(client string, data []byte) {
 	cmd := MqttUtils.NewCommand()
 	cmd.Cmd = sc.SshCmd
 	cmd.Data = string(data)
-	cmd.GetVerify()
 
 	for k, v := range sc.channel {
-		k = strings.ReplaceAll(k, "$id", receiver)
+		k = strings.ReplaceAll(k, "$id", client)
 		cmd.SendCommand(k, v)
 	}
 }
@@ -162,7 +161,7 @@ func (sc *sshClient) sendToMqtt(receiver string, data []byte) {
  描述: 向client发送连接请求
 */
 func (sc *sshClient) Connect(client string) {
-	sc.sendToMqtt(client, []byte(mqttSSHConn))
+	sc.SendData(client, []byte(mqttSSHConn))
 }
 
 // Disconnect 2024-02-06 19:11:16
@@ -171,7 +170,7 @@ func (sc *sshClient) Connect(client string) {
  描述: 向client发送断开请求
 */
 func (sc *sshClient) Disconnect(client string) {
-	sc.sendToMqtt(client, []byte(mqttSSHExit))
+	sc.SendData(client, []byte(mqttSSHExit))
 }
 
 // newSSHConn 2024-02-01 20:38:05
@@ -319,11 +318,15 @@ func (sc *sshClient) startSSHWorker() {
 		return
 	}
 
-	sc.workerGroup.Run(func(args ...interface{}) {
+	sc.workerGroup.RunSafe(func(args ...interface{}) {
 		err = sc.session.Wait()
-		if err != nil {
+		if err != nil { //外部断开
 			ErrorCaller(err, "znlib.mqttssh.session.Wait")
+			return
 		}
+
+		close(sc.fromMqtt)
+		//主动注销,关闭通道让worker退出
 	})
 
 	for {
@@ -357,6 +360,6 @@ func (sc *sshClient) startSSHWorker() {
    描述: 将 data 发送至 mqtt
 */
 func (sc *sshClient) Write(data []byte) (n int, err error) {
-	sc.sendToMqtt(sc.caller, data)
+	sc.SendData(sc.caller, data)
 	return len(data), nil
 }

@@ -227,10 +227,10 @@ func (mc *mqttClient) Stop() {
 /*
  参数: topic,主题
  参数: qos,送达级别
- 参数: msg,消息内容
+ 参数: msg,消息列表
  描述: 向topic发布msg消息
 */
-func (mc *mqttClient) Publish(topic string, qos MqttQos, msg []string) {
+func (mc *mqttClient) Publish(topic string, qos MqttQos, msg [][]byte) {
 	pub := func() {
 		for _, v := range msg {
 			token := mc.client.Publish(topic, qos, false, v)

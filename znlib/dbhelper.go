@@ -131,7 +131,7 @@ func (dm *DbUtils) UpdateDSN(dbname, dsn string) (err error) {
 	if cfg.DB != nil { //try to close
 		db := cfg.DB
 		cfg.DB = nil
-		db.Close()
+		_ = db.Close()
 	}
 
 	return nil
