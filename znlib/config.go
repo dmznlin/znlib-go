@@ -31,6 +31,19 @@ var (
 
 	// initLibOnce 确保一次初始化
 	initLibOnce sync.Once
+
+	// configStatus 由配置文件设置的状态
+	configStatus = struct {
+		dbManager bool
+		snowFlake bool
+		redis     bool
+		mqtt      bool
+	}{
+		dbManager: false,
+		snowFlake: false,
+		redis:     false,
+		mqtt:      false,
+	}
 )
 
 // InitLib 2022-08-16 20:49:11
@@ -60,18 +73,6 @@ func initLibrary() {
 		initBeforeUtil()
 	}
 
-	cfg := struct {
-		dbmanager bool
-		snowflake bool
-		redis     bool
-		mqtt      bool
-	}{
-		dbmanager: false,
-		snowflake: false,
-		redis:     false,
-		mqtt:      false,
-	}
-
 	loadLogConfig(nil)
 	loadDBConfig(nil, nil)
 	loadRedisConfig(nil)
@@ -87,50 +88,37 @@ func initLibrary() {
 		}
 
 		root := xml.SelectElement("znlib")
-		sec := root.SelectElement("logger")
-		loadLogConfig(sec)
+		loadLogConfig(root.SelectElement("logger"))
 		init_logger() //logger.go
 
-		sec = root.SelectElement("dbmanager")
-		cfg.dbmanager = sec.SelectAttr("enable").Value == StrTrue
-		loadDBConfig(sec, DBManager)
+		loadDBConfig(root.SelectElement("dbmanager"), DBManager)
+		loadSnowflakeConfig(root.SelectElement("snowflake"))
+		loadRedisConfig(root.SelectElement("redis"))
 
-		sec = root.SelectElement("snowflake")
-		cfg.snowflake = sec.SelectAttr("enable").Value == StrTrue
-		loadSnowflakeConfig(sec)
-
-		sec = root.SelectElement("redis")
-		cfg.redis = sec.SelectAttr("enable").Value == StrTrue
-		loadRedisConfig(sec)
-
-		sec = root.SelectElement("mqtt")
-		cfg.mqtt = sec.SelectAttr("enable").Value == StrTrue
-
-		loadMqttConfig(sec)
-		sec = root.SelectElement("mqttSSH")
-		loadMqttSSHConfig(sec)
+		loadMqttConfig(root.SelectElement("mqtt"))
+		loadMqttSSHConfig(root.SelectElement("mqttSSH"))
 	} else {
 		init_logger()
 		//logger.go
 	}
 
 	//启用配置: -------------------------------------------------------------------
-	if cfg.snowflake {
+	if configStatus.snowFlake {
 		init_snowflake()
 		//idgen.go
 	}
 
-	if cfg.dbmanager {
+	if configStatus.dbManager {
 		init_db()
 		//dbhelper.go
 	}
 
-	if cfg.redis {
+	if configStatus.redis {
 		init_redis()
 		//redis.go
 	}
 
-	if cfg.mqtt {
+	if configStatus.mqtt {
 		init_mqtt()
 		//mqtt.go
 		init_mqttSSH()
@@ -193,6 +181,9 @@ func loadSnowflakeConfig(root *etree.Element) {
 		return
 	}
 
+	configStatus.snowFlake = root.SelectAttr("enable").Value == StrTrue
+	//status
+
 	val, err := cast.ToInt64E(root.SelectElement("workerID").Text())
 	if err != nil {
 		snowflakeConfig.workerID = 1
@@ -217,6 +208,9 @@ func loadRedisConfig(root *etree.Element) {
 	if root == nil {
 		return
 	}
+
+	configStatus.redis = root.SelectAttr("enable").Value == StrTrue
+	//status
 
 	var str string
 	redisConfig.cluster = root.SelectElement("cluster").Text() == StrTrue
@@ -279,6 +273,9 @@ func loadDBConfig(root *etree.Element, dm *DbUtils) {
 	if root == nil || dm == nil {
 		return
 	}
+
+	configStatus.dbManager = root.SelectAttr("enable").Value == StrTrue
+	//status
 
 	caller := "znlib.config.loadDBConfig"
 	str := StrTrim(root.SelectElement("encryptKey").Text()) //秘钥
@@ -378,6 +375,9 @@ func loadMqttConfig(root *etree.Element) {
 	if root == nil {
 		return
 	}
+
+	configStatus.mqtt = root.SelectAttr("enable").Value == StrTrue
+	//status
 
 	caller := "znlib.config.loadMqttConfig"
 	var val int
@@ -496,19 +496,36 @@ func loadMqttConfig(root *etree.Element) {
 			return
 		}
 
-		str = FixPathVar(node.SelectElement("crt").Text())
-		key := FixPathVar(node.SelectElement("key").Text())
-		cert, err := tls.LoadX509KeyPair(str, key)
-		if err != nil {
-			ErrorCaller(err, caller)
-		}
+		var certs []tls.Certificate
+		func() { //加载用户证书
+			str = FixPathVar(node.SelectElement("crt").Text())
+			key := FixPathVar(node.SelectElement("key").Text())
+
+			if str != "" && !FileExists(str, false) {
+				ErrorCaller("user crt file not exists", caller)
+				return
+			}
+
+			if key != "" && !FileExists(key, false) {
+				ErrorCaller("user key file not exists", caller)
+				return
+			}
+
+			cert, err := tls.LoadX509KeyPair(str, key)
+			if err != nil {
+				ErrorCaller(err, caller)
+				return
+			}
+
+			certs = []tls.Certificate{cert}
+		}()
 
 		Mqtt.Options.SetTLSConfig(&tls.Config{
 			RootCAs:            cp,
 			ClientAuth:         tls.NoClientCert,
 			ClientCAs:          nil,
 			InsecureSkipVerify: true,
-			Certificates:       []tls.Certificate{cert},
+			Certificates:       certs,
 		})
 	}
 

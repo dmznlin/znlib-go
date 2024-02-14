@@ -329,6 +329,10 @@ func (sc *sshClient) startSSHWorker() {
 		//主动注销,关闭通道让worker退出
 	})
 
+	lastCmd := time.Now()
+	//最后收到远程指令的时间
+	ticker := time.NewTicker(sc.exitTimeout * time.Second)
+
 	for {
 		select {
 		case <-Application.Ctx.Done(): //主程序退出
@@ -346,9 +350,17 @@ func (sc *sshClient) startSSHWorker() {
 					Info(caller + ": " + data)
 				}
 
+				lastCmd = time.Now()
+				//更新时间
+
 				if _, err := sc.stdinPipe.Write([]byte(data)); err != nil { //写入ssh
 					ErrorCaller(err, caller)
 				}
+			}
+		case <-ticker.C: //超时退出
+			if time.Now().After(lastCmd.Add(sc.exitTimeout * time.Second)) {
+				Info(caller + ": timeout exit self")
+				return
 			}
 		}
 	}

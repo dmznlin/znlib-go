@@ -83,6 +83,8 @@ func init() {
 		case MqttEventServiceStop:
 			MqttUtils.stopWorkers()
 			//停止辅助类工作对象
+		default:
+			//do nothing
 		}
 	})
 }
@@ -269,7 +271,7 @@ func (mc *MqttCommand) waiter() (mw *mqttWaiter) {
 		Info(fmt.Sprintf("znlib.mqttutils.waiter: buffer size %d", len(waiterBuf)))
 	} else {
 	loop:
-		for true { //清空原有信号
+		for { //清空原有信号
 			select {
 			case <-mw.sign: //测试是否有信号
 			default:
@@ -460,7 +462,7 @@ func (mu *mqttUtils) addWorkers() {
 		var isOK bool
 		var cmd *MqttCommand
 
-		for true {
+		for {
 			select {
 			case <-Application.Ctx.Done(): //主程序退出
 				Info(caller + ": exit")
