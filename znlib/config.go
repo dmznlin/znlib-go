@@ -501,12 +501,16 @@ func loadMqttConfig(root *etree.Element) {
 			str = FixPathVar(node.SelectElement("crt").Text())
 			key := FixPathVar(node.SelectElement("key").Text())
 
-			if str != "" && !FileExists(str, false) {
+			if str == "" || key == "" { //not set
+				return
+			}
+
+			if !FileExists(str, false) {
 				ErrorCaller("user crt file not exists", caller)
 				return
 			}
 
-			if key != "" && !FileExists(key, false) {
+			if !FileExists(key, false) {
 				ErrorCaller("user key file not exists", caller)
 				return
 			}

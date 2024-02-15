@@ -274,6 +274,7 @@ func (mc *MqttCommand) waiter() (mw *mqttWaiter) {
 		for { //清空原有信号
 			select {
 			case <-mw.sign: //测试是否有信号
+				//do nothing
 			default:
 				break loop
 			}
@@ -347,7 +348,7 @@ func (mu *mqttUtils) onMessge(cli mt.Client, msg mt.Message) {
 	defer DeferHandle(false, caller)
 	//捕捉异常
 
-	if newMsg[0] != '{' { //非json结构
+	if newMsg[newLen-1] != '}' { //非json结构
 		tagStart := newLen - mqttZipTagLength
 		if tagStart > 0 && string(newMsg[tagStart:]) == mqttZipTail { //判断是否压缩
 			var err error
