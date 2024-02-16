@@ -6,13 +6,14 @@
 备注:
   *.ssh先决条件:
 	1.使用 Mqtt.StartWithUtils 启动mqtt服务,这样mqtt被格式话为MqttCommand.
-	2.配置 config.ini => mqttSSH 小节.
+	2.配置 config.xml => mqttSSH 小节.
 	3.channel中需要有一个带 $id 变量的通道,用于 远程<=>本地 传递数据.
   *.MqttCommand.Data需要以"\n"结尾,命令才会被执行.
 ******************************************************************************/
 package znlib
 
 import (
+	"github.com/dmznlin/znlib-go/znlib/cast"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 	"io"
@@ -22,9 +23,18 @@ import (
 )
 
 const (
-	mqttSSHConn = "conn" //连接
-	mqttSSHExit = "exit" //断开
+	MqttSSHConn   MqttCode = 8 - iota //连接
+	MqttSSHExit                       //断开
+	MqttSSHCommon                     //shell数据
+	MqttSSHFile                       //文件数据
+	MqttSSHResize                     //重置大小
 )
+
+// sshCommand ssh指令数据
+type sshCommand struct {
+	cmd  MqttCode //指令
+	data string   //数据
+}
 
 // sshClient ssh配置
 type sshClient struct {
@@ -36,7 +46,7 @@ type sshClient struct {
 	connTimeout time.Duration      //连接超时(毫秒)
 	exitTimeout time.Duration      //超时退出(秒)
 	caller      string             //远程标识
-	SshCmd      uint8              //ssh指令代码
+	SshCmd      MqttCode           //ssh指令代码
 	channel     map[string]MqttQos //返回时的通道列表
 
 	client      *ssh.Client    //客户端
@@ -44,8 +54,8 @@ type sshClient struct {
 	session     *ssh.Session   //会话
 	workerGroup *RoutineGroup  //工作对象组
 
-	fromMqtt chan struct{}          //mqtt数据到达信号
-	dataRecv *CircularQueue[string] //已接收消息队列
+	fromMqtt chan struct{}               //mqtt数据到达信号
+	dataRecv *CircularQueue[*sshCommand] //已接收消息队列
 }
 
 // MqttSSH ssh客户端
@@ -64,7 +74,7 @@ var MqttSSH = &sshClient{
 	session:     nil,
 	workerGroup: NewRoutineGroup(),
 	fromMqtt:    nil,
-	dataRecv:    NewCircularQueue[string](Circular_FIFO, 0, true),
+	dataRecv:    NewCircularQueue[*sshCommand](Circular_FIFO, 0, true),
 }
 
 // init_mqttSSH 2024-02-01 20:15:37
@@ -76,8 +86,10 @@ func init_mqttSSH() {
 		Mqtt.RegisterEventHandler(func(event MqttEvent) {
 			switch event {
 			case MqttEventServiceStop:
-				MqttSSH.closeSSHConn()
+				_ = MqttSSH.closeSSHConn()
 				//注册关闭ssh
+			default:
+				//do nothing
 			}
 		})
 
@@ -85,7 +97,7 @@ func init_mqttSSH() {
 		//注册ssh消息通道
 
 		Application.RegisterExitHandler(func() {
-			MqttSSH.closeSSHConn()
+			_ = MqttSSH.closeSSHConn()
 			//注册关闭ssh
 		})
 	}
@@ -109,18 +121,18 @@ func doMqttSSHCommand(cmd *MqttCommand) (err error) {
 		Info("znlib.mqttssh.doMqttSSHCommand: " + cmd.Data)
 	}
 
-	switch cmd.Data {
-	case mqttSSHExit: //退出
+	switch cmd.Ext { //扩展指令
+	case MqttSSHExit: //退出
 		err = MqttSSH.closeSSHConn()
 		if err != nil {
-			MqttSSH.SendData(cmd.Sender, []byte(err.Error()))
+			MqttSSH.SendData(cmd.Sender, MqttSSHExit, []byte(err.Error()))
 		}
 		return err
-	case mqttSSHConn: //连接
+	case MqttSSHConn: //连接
 		if MqttSSH.client == nil { //创建ssh
 			err = MqttSSH.newSSHConn()
 			if err != nil {
-				MqttSSH.SendData(cmd.Sender, []byte(err.Error()))
+				MqttSSH.SendData(cmd.Sender, MqttSSHConn, []byte(err.Error()))
 				return err
 			}
 
@@ -129,7 +141,10 @@ func doMqttSSHCommand(cmd *MqttCommand) (err error) {
 		}
 	default: //数据
 		if MqttSSH.client != nil {
-			MqttSSH.dataRecv.Push(cmd.Data)
+			_ = MqttSSH.dataRecv.Push(&sshCommand{
+				cmd:  cmd.Ext,
+				data: cmd.Data,
+			})
 			MqttSSH.fromMqtt <- struct{}{}
 			//数据到达,告知worker处理
 		}
@@ -141,13 +156,18 @@ func doMqttSSHCommand(cmd *MqttCommand) (err error) {
 // SendData 2024-02-04 13:39:17
 /*
  参数: client,接收者标识
+ 参数: sshCmd,指令
  参数: data,数据
  描述: 将data发送至receiver
 */
-func (sc *sshClient) SendData(client string, data []byte) {
+func (sc *sshClient) SendData(client string, sshCmd MqttCode, data []byte) {
 	cmd := MqttUtils.NewCommand()
 	cmd.Cmd = sc.SshCmd
-	cmd.Data = string(data)
+	cmd.Ext = sshCmd
+
+	if data != nil {
+		cmd.Data = string(data)
+	}
 
 	for k, v := range sc.channel {
 		k = strings.ReplaceAll(k, "$id", client)
@@ -161,7 +181,7 @@ func (sc *sshClient) SendData(client string, data []byte) {
  描述: 向client发送连接请求
 */
 func (sc *sshClient) Connect(client string) {
-	sc.SendData(client, []byte(mqttSSHConn))
+	sc.SendData(client, MqttSSHConn, nil)
 }
 
 // Disconnect 2024-02-06 19:11:16
@@ -170,7 +190,7 @@ func (sc *sshClient) Connect(client string) {
  描述: 向client发送断开请求
 */
 func (sc *sshClient) Disconnect(client string) {
-	sc.SendData(client, []byte(mqttSSHExit))
+	sc.SendData(client, MqttSSHExit, nil)
 }
 
 // newSSHConn 2024-02-01 20:38:05
@@ -245,7 +265,7 @@ func (sc *sshClient) startSSHWorker() {
 	var err error
 
 	defer func() {
-		sc.client.Close()
+		_ = sc.client.Close()
 		//最后关闭链路
 
 		sc.caller = ""
@@ -306,8 +326,6 @@ func (sc *sshClient) startSSHWorker() {
 		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
 	}
 
-	termH = 24
-	termW = 80
 	if err = sc.session.RequestPty(termType, termH, termW, modes); err != nil {
 		ErrorCaller(err, caller)
 		return
@@ -344,19 +362,40 @@ func (sc *sshClient) startSSHWorker() {
 				return
 			}
 
-			data, ok := sc.dataRecv.Pop("")
-			if ok {
+			func() { //解析指令
+				defer DeferHandle(false, caller)
+				//捕获异常
+
+				newCmd, ok := sc.dataRecv.Pop(nil)
+				if !ok {
+					return
+				}
+
 				if Application.IsDebug {
-					Info(caller + ": " + data)
+					Info(caller + ": " + newCmd.data)
 				}
 
 				lastCmd = time.Now()
 				//更新时间
 
-				if _, err := sc.stdinPipe.Write([]byte(data)); err != nil { //写入ssh
-					ErrorCaller(err, caller)
+				switch newCmd.cmd {
+				case MqttSSHCommon: //shell输入
+					if _, err := sc.stdinPipe.Write([]byte(newCmd.data)); err != nil { //写入ssh
+						ErrorCaller(err, caller)
+					}
+				case MqttSSHResize: //调整大小
+					newSize := strings.Split(newCmd.data, ",")
+					//width,height
+					if len(newSize) == 2 {
+						newW := cast.ToInt(newSize[0])
+						newH := cast.ToInt(newSize[1])
+						// 更新远端大小
+						_ = sc.session.WindowChange(newH, newW)
+					}
+				default:
+					//do nothing
 				}
-			}
+			}()
 		case <-ticker.C: //超时退出
 			if time.Now().After(lastCmd.Add(sc.exitTimeout * time.Second)) {
 				Info(caller + ": timeout exit self")
@@ -372,6 +411,6 @@ func (sc *sshClient) startSSHWorker() {
    描述: 将 data 发送至 mqtt
 */
 func (sc *sshClient) Write(data []byte) (n int, err error) {
-	sc.SendData(sc.caller, data)
+	sc.SendData(sc.caller, MqttSSHCommon, data)
 	return len(data), nil
 }

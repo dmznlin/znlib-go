@@ -160,7 +160,10 @@ func loadLogConfig(root *etree.Element) {
 	if !StrIn(val, levels...) {
 		val = "info"
 	}
+
 	logConfig.logLevel, _ = logrus.ParseLevel(val)
+	Application.IsDebug = logConfig.logLevel == logrus.DebugLevel
+	//全局debug开发
 
 	if Application.IsWindows { //win下支持彩色
 		logConfig.colors = root.SelectElement("colorful").Text() == "true"

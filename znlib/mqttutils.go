@@ -21,14 +21,17 @@ const (
 	mqttZipTagLength = len(mqttZipTail) //压缩标识长度
 )
 
+// MqttCode 指令代码
+type MqttCode = uint8
+
 // MqttCommand 命令结构
 type MqttCommand struct {
-	Serial string `json:"no"` //业务流水
-	Sender string `json:"sd"` //发送方
-	Cmd    uint8  `json:"cd"` //指令代码
-	Ext    uint8  `json:"et"` //指令扩展
-	Data   string `json:"dt"` //指令数据
-	Verify string `json:"vr"` //校验码
+	Serial string   `json:"no"` //业务流水
+	Sender string   `json:"sd"` //发送方
+	Cmd    MqttCode `json:"cd"` //指令代码
+	Ext    MqttCode `json:"et"` //指令扩展
+	Data   string   `json:"dt"` //指令数据
+	Verify string   `json:"vr"` //校验码
 
 	VerifyUse bool          `json:"-"` //无需验证码
 	Topic     string        `json:"-"` //主题
@@ -136,8 +139,8 @@ func (mc *MqttCommand) Reset(init ...bool) {
 	no, _ := SerialID.NextStr(false)
 	//业务序列号
 
-	mc.Serial = no
 	mc.Sender = Mqtt.Options.ClientID
+	mc.Serial = fmt.Sprintf("%s_%s", mc.Sender, no)
 	mc.VerifyUse = MqttUtils.msgVerify
 }
 
