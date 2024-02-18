@@ -16,5 +16,11 @@ https://github.com/gobwas/ws.git
 *.etree: expresses XML in the form of an element tree
 https://github.com/beevik/etree.git
 
-*. A blazingly fast JSON serializing & deserializing library
-https://github.com/bytedance/sonic.git
+*.provides a fast and simple way to get values from a json document
+https://github.com/tidwall/gjson.git
+
+*.provides a very fast and simple way to set a value in a json document
+https://github.com/tidwall/sjson.git
+
+*.otp: One Time Password utilities
+https://github.com/pquerna/otp.git

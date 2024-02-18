@@ -1,0 +1,2 @@
+# 批处理文件在windows中执行,回车+换行
+*.bat text eol=crlf
