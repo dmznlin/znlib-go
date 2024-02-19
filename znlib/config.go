@@ -104,24 +104,24 @@ func initLibrary() {
 
 	//启用配置: -------------------------------------------------------------------
 	if configStatus.snowFlake {
-		init_snowflake()
+		initSnowflake()
 		//idgen.go
 	}
 
 	if configStatus.dbManager {
-		init_db()
+		initDBManager()
 		//dbhelper.go
 	}
 
 	if configStatus.redis {
-		init_redis()
+		initRedis()
 		//redis.go
 	}
 
 	if configStatus.mqtt {
-		init_mqtt()
+		initMqtt()
 		//mqtt.go
-		init_mqttSSH()
+		initMqttSSH()
 		//mqttssh.go
 	}
 }

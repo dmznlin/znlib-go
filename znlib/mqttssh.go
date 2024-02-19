@@ -77,11 +77,11 @@ var MqttSSH = &sshClient{
 	dataRecv:    NewCircularQueue[*sshCommand](Circular_FIFO, 0, true),
 }
 
-// init_mqttSSH 2024-02-01 20:15:37
+// initMqttSSH 2024-02-01 20:15:37
 /*
  描述: 初始化ssh
 */
-func init_mqttSSH() {
+func initMqttSSH() {
 	if MqttSSH.enabled {
 		Mqtt.RegisterEventHandler(func(event MqttEvent) {
 			switch event {

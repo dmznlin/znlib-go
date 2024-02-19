@@ -38,13 +38,13 @@ var RedisSingle *redis.Client = nil
 // RedisCluster 集群模式连接
 var RedisCluster *redis.ClusterClient = nil
 
-// init_redis 2022-08-12 12:44:13
+// initRedis 2022-08-12 12:44:13
 /*
  描述: 初始化redis客户端
 */
-func init_redis() {
+func initRedis() {
 	if len(redisConfig.servers) < 1 {
-		Error("znlib.redis.init_redis: server list empty.")
+		Error("znlib.redis.initRedis: server list empty.")
 		return
 	}
 

@@ -34,7 +34,7 @@ const (
 
 type (
 	MqttEvent        = byte                  //event代码
-	MqttEventHandler = func(event MqttEvent) //event句柄
+	MqttEventHandler = func(event MqttEvent) //event事件
 )
 
 const (
@@ -61,11 +61,11 @@ var Mqtt = &mqttClient{
 	events:    make([]MqttEventHandler, 0),
 }
 
-// init_mqtt 2024-01-09 17:03:09
+// initMqtt 2024-01-09 17:03:09
 /*
  描述: 初始化mqtt连接
 */
-func init_mqtt() {
+func initMqtt() {
 	Application.RegisterExitHandler(func() {
 		Mqtt.Stop()
 		//退出时停止
@@ -84,7 +84,7 @@ func init_mqtt() {
 
 			Info("znlib.mqtt.connect: " + host)
 			//log
-			Mqtt.subscribeMultiple(client)
+			_ = Mqtt.subscribeMultiple(client)
 			//连接成功后,重新订阅主题
 			Mqtt.eventAction(MqttEventConnected)
 			//触发已连接事件
@@ -198,7 +198,7 @@ func (mc *mqttClient) Stop() {
 
 	if mc.client.IsConnected() { //退订所有主题
 		idx := len(mc.subTopics)
-		topics := make([]string, idx, idx)
+		topics := make([]string, idx)
 		idx = 0
 
 		for k := range mc.subTopics {
@@ -265,7 +265,7 @@ func (mc *mqttClient) Publish(topic string, qos MqttQos, msg [][]byte) {
 */
 func (mc *mqttClient) Subscribe(topics map[string]MqttQos, clear bool) error {
 	if clear {
-		mc.subTopics = make(map[string]MqttQos, 0)
+		mc.subTopics = make(map[string]MqttQos)
 	}
 
 	for k, v := range topics {
@@ -280,7 +280,7 @@ func (mc *mqttClient) Subscribe(topics map[string]MqttQos, clear bool) error {
  参数: client,链路
  描述: 订阅主题列表
 */
-func (mc mqttClient) subscribeMultiple(client mt.Client) error {
+func (mc *mqttClient) subscribeMultiple(client mt.Client) error {
 	if len(Mqtt.subTopics) < 1 {
 		return nil
 	}

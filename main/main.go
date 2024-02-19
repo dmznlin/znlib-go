@@ -10,6 +10,12 @@ import (
 func main() {
 	InitLib(nil, nil)
 	Application.IsDebug = true
+
+	if !Singleton.Lock("znlib-lock") {
+		return
+	}
+	defer Singleton.Unlock()
+
 	fmt.Println(StrCopy("dmzn", 3, 3))
 	Info("hello only")
 	Info("hello with fields", LogFields{"name": "dmzn", "age": 15}, LogFields{"act": "eat"})

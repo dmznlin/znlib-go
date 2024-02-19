@@ -54,11 +54,11 @@ var snowflakeConfig = struct {
 	datacenterID: 0,
 }
 
-// init_snowflake 2022-08-11 19:03:40
+// initSnowflake 2022-08-11 19:03:40
 /*
  描述: 初始化对象
 */
-func init_snowflake() {
+func initSnowflake() {
 	SnowflakeID = NewSnowflake(snowflakeConfig.workerID, snowflakeConfig.datacenterID)
 }
 

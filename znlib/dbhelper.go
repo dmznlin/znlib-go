@@ -52,11 +52,11 @@ var DBManager = &DbUtils{
 	DBList:      make(map[string]*DBConfig),
 }
 
-// init_db 2022-07-26 16:33:53
+// initDBManager 2022-07-26 16:33:53
 /*
  描述: 初始化数据库配置
 */
-func init_db() {
+func initDBManager() {
 
 }
 

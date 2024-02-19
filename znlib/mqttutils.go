@@ -139,8 +139,8 @@ func (mc *MqttCommand) Reset(init ...bool) {
 	no, _ := SerialID.NextStr(false)
 	//业务序列号
 
-	mc.Sender = Mqtt.Options.ClientID
 	mc.Serial = fmt.Sprintf("%s_%s", mc.Sender, no)
+	mc.Sender = Mqtt.Options.ClientID
 	mc.VerifyUse = MqttUtils.msgVerify
 }
 
@@ -510,7 +510,7 @@ func (mu *mqttUtils) addWorkers() {
 
 	mu.enabled = true
 	//启用辅助类
-	mu.msgDone = make(chan struct{}, mu.workerNum)
+	mu.msgDone = make(chan struct{}, mu.workerNum*3)
 	//按通道分配信号
 
 	var id = 0
