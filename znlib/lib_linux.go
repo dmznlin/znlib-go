@@ -6,7 +6,6 @@
 package znlib
 
 import (
-	"fmt"
 	"os"
 )
 
@@ -17,8 +16,18 @@ import (
  描述: 创建一个互斥量,成功返回true
 */
 func mutexLock(st *singleton, caller string) bool {
+	lockPath := "/dev/shm"
+	if FileExists(lockPath, true) { //tmpfs:重启后自动删除pid文件
+		lockPath = lockPath + "/znlib/"
+		if !FileExists(lockPath, true) {
+			MakeDir(lockPath)
+		}
+	} else {
+		lockPath = AppPath
+	}
+
 	//进程PID文件
-	st.fileName = FixPathVar(fmt.Sprintf("$path/%s.pid", st.mutex))
+	st.fileName = lockPath + st.mutex + ".pid"
 
 	_, err := os.Stat(st.fileName)
 	if err == nil { //进程已经存在
