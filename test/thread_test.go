@@ -98,3 +98,62 @@ func TestRunWait(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 }
+
+func TestWaiter(t *testing.T) {
+	waiter := NewWaiter[string](func() string {
+		time.Sleep(10 * time.Millisecond)
+		return "hello"
+	})
+
+	val, ok := waiter.WaitFor(1 * time.Millisecond) //超时
+	if ok {
+		t.Error("znlib.Waiter.1: invalid timetout")
+	}
+
+	val, ok = waiter.WaitFor(0) //等待结果
+	if ok {
+		t.Log(*val)
+	} else {
+		t.Error("znlib.Waiter.2: invalid result ")
+	}
+
+	//-----------------------------------------------------------------
+	waiter = NewWaiter[string](func() string {
+		panic("waiter error")
+		return "hello"
+	})
+
+	val, ok = waiter.WaitFor(0) //等待结果
+	if ok {
+		t.Error("znlib.Waiter.3: invalid panic")
+	}
+
+	//-----------------------------------------------------------------
+	waiter = NewWaiter[string](nil)
+	cpResult := func(cp bool) {
+		go func() {
+			time.Sleep(10 * time.Microsecond)
+			str := "hello"
+			waiter.Wakeup(&str, !cp)
+
+			str = "word"
+			//传递后修改结果
+		}()
+
+		val, ok = waiter.WaitFor(0)
+		time.Sleep(10 * time.Microsecond)
+		//等待线程修改结果
+		if ok {
+			t.Log(*val)
+		} else {
+			t.Error("znlib.Waiter.4: invalid result ")
+		}
+	}
+
+	cpResult(false)
+	//直接传递
+	waiter.Reset()
+	//重置所有信号
+	cpResult(true)
+	//非直接传递
+}
