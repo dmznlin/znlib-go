@@ -6,6 +6,7 @@
 package znlib
 
 import (
+	"encoding/hex"
 	"github.com/dmznlin/znlib-go/znlib/biu"
 	"github.com/dmznlin/znlib-go/znlib/pinyin"
 	"strings"
@@ -318,6 +319,66 @@ func StrReverse(str string) string {
 	}
 
 	return string(runes)
+}
+
+// StrHex2Bin 2024-04-17 20:32:59
+/*
+ 参数: str,16进制字符串
+ 描述: 将16进制编码为2进制数据
+*/
+func StrHex2Bin(str string) (bin []byte, ok bool) {
+	var err error
+	str = strings.ReplaceAll(str, " ", "")
+	//清除空格
+
+	bin, err = hex.DecodeString(str)
+	if err != nil {
+		ErrorCaller(err, "znlib.strings.StrHex2Bin")
+		return nil, false
+	}
+
+	return bin, true
+}
+
+// StrBin2Hex 2024-04-17 20:49:46
+/*
+ 参数: bin,字节数组
+ 参数: blank,是否添加空格
+ 描述: 将bin数组格式化为16进制字符串
+*/
+func StrBin2Hex(bin []byte, blank bool) (dst []byte, ok bool) {
+	idx := hex.EncodedLen(len(bin))
+	if idx < 1 {
+		return nil, false
+	}
+
+	blank = blank && idx >= 4
+	//每两个字节补一个空格
+	if blank {
+		idx = idx + idx/2 - 1
+	}
+
+	dst = make([]byte, idx)
+	cur := hex.Encode(dst, bin)
+	//编码
+
+	if blank {
+		idx = idx - 1
+		cur = cur - 1
+		//末尾索引
+
+		for cur > 1 {
+			dst[idx] = dst[cur]
+			dst[idx-1] = dst[cur-1]
+			dst[idx-2] = 32 //空格
+
+			cur = cur - 2
+			idx = idx - 3
+			//前移索引指针
+		}
+	}
+
+	return dst, true
 }
 
 // Str2Pinyin 2024-01-03 15:06:07

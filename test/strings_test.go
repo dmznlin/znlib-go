@@ -100,3 +100,29 @@ func TestStr2Pinyin(t *testing.T) {
 		t.Errorf("znlib.Str2Pinyin wrong")
 	}
 }
+
+func TestStrHex2Bin(t *testing.T) {
+	var hex = "4a 4b 4c 4d5 a"
+	bin, ok := StrHex2Bin(hex)
+	if !ok || string(bin) != "JKLMZ" {
+		t.Errorf("znlib.StrHex2Bin wrong")
+	}
+}
+
+func TestStrBin2Hex(t *testing.T) {
+	var bin = []byte("JKLMZ")
+	hex, ok := StrBin2Hex(bin, false)
+	if !ok || string(hex) != "4a4b4c4d5a" {
+		t.Errorf("znlib.StrHex2Bin wrong")
+	}
+
+	hex, ok = StrBin2Hex(bin, true)
+	if !ok || string(hex) != "4a 4b 4c 4d 5a" {
+		t.Errorf("znlib.StrHex2Bin.blank wrong")
+	}
+
+	hex, ok = StrBin2Hex([]byte("中文"), false)
+	if ok {
+		t.Log(string(hex))
+	}
+}
