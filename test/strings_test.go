@@ -102,8 +102,8 @@ func TestStr2Pinyin(t *testing.T) {
 }
 
 func TestStrHex2Bin(t *testing.T) {
-	var hex = "4a 4b 4c 4d5 a"
-	bin, ok := StrHex2Bin(hex)
+	var hex = []byte("4a 4b 4c 4d5 a")
+	bin, ok := StrHex2Bin(hex, true)
 	if !ok || string(bin) != "JKLMZ" {
 		t.Errorf("znlib.StrHex2Bin wrong")
 	}

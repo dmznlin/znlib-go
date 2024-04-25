@@ -321,17 +321,67 @@ func StrReverse(str string) string {
 	return string(runes)
 }
 
+// StrHexFilter 2024-04-25 22:04:51
+/*
+ 参数: sHex,16进制字符串
+ 描述: 过滤sHex中的无效字符
+*/
+func StrHexFilter(sHex []byte) (dst []byte, ok bool) {
+	sLen := len(sHex)
+	if sLen < 2 { //空字符串
+		return nil, false
+	}
+
+	validator := func(val byte) bool {
+		return (val >= '0' && val <= '9') || (val >= 'a' && val <= 'f') || (val >= 'A' && val <= 'F')
+		//有效字符: 0-9,a-f,A-F
+	}
+
+	var valid int = 0
+	for _, v := range sHex {
+		if validator(v) {
+			valid++
+		}
+	}
+
+	if valid == sLen {
+		return sHex, true
+		//全部是有效字符
+	}
+
+	if valid < 1 {
+		return nil, false
+		//全部是无效字符
+	}
+
+	dst = make([]byte, valid)
+	cur := 0 //当前索引
+	for _, v := range sHex {
+		if validator(v) { //有效字符
+			dst[cur] = v
+			cur++ //next
+		}
+	}
+
+	return dst, true
+}
+
 // StrHex2Bin 2024-04-17 20:32:59
 /*
- 参数: str,16进制字符串
+ 参数: sHex,16进制字符串
+ 参数: filter,过滤无效字符
  描述: 将16进制编码为2进制数据
 */
-func StrHex2Bin(str string) (bin []byte, ok bool) {
-	var err error
-	str = strings.ReplaceAll(str, " ", "")
-	//清除空格
+func StrHex2Bin(sHex []byte, filter bool) (bin []byte, ok bool) {
+	if filter {
+		sHex, ok = StrHexFilter(sHex) //无效字符处理
+		if !ok {
+			return nil, false
+		}
+	}
 
-	bin, err = hex.DecodeString(str)
+	var err error
+	bin, err = hex.DecodeString(string(sHex))
 	if err != nil {
 		ErrorCaller(err, "znlib.strings.StrHex2Bin")
 		return nil, false
@@ -370,7 +420,7 @@ func StrBin2Hex(bin []byte, blank bool) (dst []byte, ok bool) {
 		for cur > 1 {
 			dst[idx] = dst[cur]
 			dst[idx-1] = dst[cur-1]
-			dst[idx-2] = 32 //空格
+			dst[idx-2] = byte(32) //空格
 
 			cur = cur - 2
 			idx = idx - 3
