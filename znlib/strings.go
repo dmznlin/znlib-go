@@ -7,8 +7,6 @@ package znlib
 
 import (
 	"encoding/hex"
-	"github.com/dmznlin/znlib-go/znlib/biu"
-	"github.com/dmznlin/znlib-go/znlib/pinyin"
 	"strings"
 	"time"
 	"unicode"
@@ -282,30 +280,6 @@ func StrIF(ok bool, array ...string) string {
 	}
 }
 
-// Str2Bit 2022-05-30 13:27:53
-/*
- 参数: str,字符串
- 描述: 使用str构建一个字节
-*/
-func Str2Bit(str string) (ret byte) {
-	defer DeferHandle(false, "znlib.strings.Str2Bit", func(err error) {
-		if err != nil {
-			ret = 0
-		}
-	})
-
-	return biu.BinaryStringToBytes(str)[0]
-}
-
-// Bit2Str 2022-05-30 14:25:51
-/*
- 参数: val,字节
- 描述: 返回val的二进制描述
-*/
-func Bit2Str(val byte) string {
-	return biu.ByteToBinaryString(val)
-}
-
 // StrReverse 2022-05-30 21:46:04
 /*
  参数: str,字符串
@@ -429,31 +403,6 @@ func StrBin2Hex(bin []byte, blank bool) (dst []byte, ok bool) {
 	}
 
 	return dst, true
-}
-
-// Str2Pinyin 2024-01-03 15:06:07
-/*
- 参数: str,字符串
- 参数: named,人名模式
- 描述: 获取 str 的拼音首字母
-*/
-func Str2Pinyin(str string, named ...bool) string {
-	var buf string
-	if named != nil && named[0] {
-		buf = pinyin.NewDict().Name(str, ",").None()
-	} else {
-		buf = pinyin.NewDict().Convert(str, ",").None()
-	}
-
-	words := strings.Split(buf, ",")
-	res := make([]byte, 0, len(words))
-	for _, v := range words {
-		if len(v) > 0 {
-			res = append(res, v[0])
-		}
-	}
-
-	return string(res)
 }
 
 //--------------------------------------------------------------------------------

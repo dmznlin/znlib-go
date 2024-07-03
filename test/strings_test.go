@@ -2,6 +2,8 @@ package test
 
 import (
 	. "github.com/dmznlin/znlib-go/znlib"
+	"github.com/dmznlin/znlib-go/znlib/bin"
+	"github.com/dmznlin/znlib-go/znlib/pinyin"
 	"testing"
 	"time"
 )
@@ -57,13 +59,13 @@ func TestStrReplace(t *testing.T) {
 }
 
 func TestStr2Bit(t *testing.T) {
-	if Str2Bit("00000101") != 5 {
+	if bin.Str2Bit("00000101") != 5 {
 		t.Errorf("znlib.Str2Bit wrong")
 	}
 }
 
 func TestBit2Str(t *testing.T) {
-	if Bit2Str(5) != "00000101" {
+	if bin.Bit2Str(5) != "00000101" {
 		t.Errorf("znlib.Bit2Str wrong")
 	}
 }
@@ -96,7 +98,7 @@ func TestStrDel(t *testing.T) {
 
 func TestStr2Pinyin(t *testing.T) {
 	var str = "白日依山尽"
-	if Str2Pinyin(str) != "brysj" {
+	if pinyin.Str2Pinyin(str) != "brysj" {
 		t.Errorf("znlib.Str2Pinyin wrong")
 	}
 }
