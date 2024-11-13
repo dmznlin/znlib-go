@@ -186,6 +186,9 @@ func loadSnowflakeConfig(root *etree.Element) {
 
 	configStatus.snowFlake = root.SelectAttr("enable").Value == StrTrue
 	//status
+	if !configStatus.snowFlake { //disable
+		return
+	}
 
 	val, err := cast.ToInt64E(root.SelectElement("workerID").Text())
 	if err != nil {
@@ -214,6 +217,9 @@ func loadRedisConfig(root *etree.Element) {
 
 	configStatus.redis = root.SelectAttr("enable").Value == StrTrue
 	//status
+	if !configStatus.redis { //disable
+		return
+	}
 
 	var str string
 	redisConfig.cluster = root.SelectElement("cluster").Text() == StrTrue
@@ -279,6 +285,9 @@ func loadDBConfig(root *etree.Element, dm *DbUtils) {
 
 	configStatus.dbManager = root.SelectAttr("enable").Value == StrTrue
 	//status
+	if !configStatus.dbManager { //disable
+		return
+	}
 
 	caller := "znlib.config.loadDBConfig"
 	str := StrTrim(root.SelectElement("encryptKey").Text()) //秘钥
@@ -381,6 +390,9 @@ func loadMqttConfig(root *etree.Element) {
 
 	configStatus.mqtt = root.SelectAttr("enable").Value == StrTrue
 	//status
+	if !configStatus.mqtt { //disable
+		return
+	}
 
 	caller := "znlib.config.loadMqttConfig"
 	var val int
@@ -592,9 +604,14 @@ func loadMqttSSHConfig(root *etree.Element) {
 		return
 	}
 
+	MqttSSH.enabled = root.SelectAttr("enable").Value == StrTrue
+	//status
+	if !MqttSSH.enabled { //disable
+		return
+	}
+
 	caller := "znlib.config.loadMqttSSHConfig"
 	var str string
-	MqttSSH.enabled = root.SelectAttr("enable").Value == StrTrue
 
 	node := root.SelectElement("auth")
 	str = StrTrim(node.SelectElement("host").Text())
