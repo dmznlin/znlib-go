@@ -22,7 +22,19 @@ func TestFieldsFromStruct(t *testing.T) {
 				Simple int
 			}{},
 			fields{
-				field{"Simple", 0, intType, intType, nil, -1, -1, 0, true, 0, 0},
+				field{
+					Name:       "Simple",
+					Index:      0,
+					BinaryType: intType,
+					NativeType: intType,
+					Order:      nil,
+					SIndex:     -1,
+					TIndex:     -1,
+					Skip:       0,
+					Trivial:    true,
+					BitSize:    0,
+					Flags:      0,
+				},
 			},
 		},
 		{
@@ -32,8 +44,32 @@ func TestFieldsFromStruct(t *testing.T) {
 				After  bool
 			}{},
 			fields{
-				field{"Before", 0, intType, intType, nil, -1, -1, 0, true, 0, 0},
-				field{"After", 2, boolType, boolType, nil, -1, -1, 0, true, 0, 0},
+				field{
+					Name:       "Before",
+					Index:      0,
+					BinaryType: intType,
+					NativeType: intType,
+					Order:      nil,
+					SIndex:     -1,
+					TIndex:     -1,
+					Skip:       0,
+					Trivial:    true,
+					BitSize:    0,
+					Flags:      0,
+				},
+				field{
+					Name:       "After",
+					Index:      2,
+					BinaryType: boolType,
+					NativeType: boolType,
+					Order:      nil,
+					SIndex:     -1,
+					TIndex:     -1,
+					Skip:       0,
+					Trivial:    true,
+					BitSize:    0,
+					Flags:      0,
+				},
 			},
 		},
 		{
@@ -43,9 +79,45 @@ func TestFieldsFromStruct(t *testing.T) {
 				InvertedVariantBool bool `struct:"variantbool,invertedbool"`
 			}{},
 			fields{
-				field{"VariantBool", 0, boolType, boolType, nil, -1, -1, 0, true, 0, VariantBoolFlag},
-				field{"InvertedBool", 1, boolType, boolType, nil, -1, -1, 0, true, 0, InvertedBoolFlag},
-				field{"InvertedVariantBool", 2, boolType, boolType, nil, -1, -1, 0, true, 0, VariantBoolFlag | InvertedBoolFlag},
+				field{
+					Name:       "VariantBool",
+					Index:      0,
+					BinaryType: boolType,
+					NativeType: boolType,
+					Order:      nil,
+					SIndex:     -1,
+					TIndex:     -1,
+					Skip:       0,
+					Trivial:    true,
+					BitSize:    0,
+					Flags:      VariantBoolFlag,
+				},
+				field{
+					Name:       "InvertedBool",
+					Index:      1,
+					BinaryType: boolType,
+					NativeType: boolType,
+					Order:      nil,
+					SIndex:     -1,
+					TIndex:     -1,
+					Skip:       0,
+					Trivial:    true,
+					BitSize:    0,
+					Flags:      InvertedBoolFlag,
+				},
+				field{
+					Name:       "InvertedVariantBool",
+					Index:      2,
+					BinaryType: boolType,
+					NativeType: boolType,
+					Order:      nil,
+					SIndex:     -1,
+					TIndex:     -1,
+					Skip:       0,
+					Trivial:    true,
+					BitSize:    0,
+					Flags:      VariantBoolFlag | InvertedBoolFlag,
+				},
 			},
 		},
 		{
@@ -54,8 +126,32 @@ func TestFieldsFromStruct(t *testing.T) {
 				LSBInt   int    `struct:"uint32,little"`
 			}{},
 			fields{
-				field{"FixedStr", 0, reflect.TypeOf([64]byte{}), strType, nil, -1, -1, 4, true, 0, 0},
-				field{"LSBInt", 1, reflect.TypeOf(uint32(0)), intType, binary.LittleEndian, -1, -1, 0, true, 0, 0},
+				field{
+					Name:       "FixedStr",
+					Index:      0,
+					BinaryType: reflect.TypeOf([64]byte{}),
+					NativeType: strType,
+					Order:      nil,
+					SIndex:     -1,
+					TIndex:     -1,
+					Skip:       4,
+					Trivial:    true,
+					BitSize:    0,
+					Flags:      0,
+				},
+				field{
+					Name:       "LSBInt",
+					Index:      1,
+					BinaryType: reflect.TypeOf(uint32(0)),
+					NativeType: intType,
+					Order:      binary.LittleEndian,
+					SIndex:     -1,
+					TIndex:     -1,
+					Skip:       0,
+					Trivial:    true,
+					BitSize:    0,
+					Flags:      0,
+				},
 			},
 		},
 		{
@@ -184,116 +280,8 @@ func TestIsTypeTrivial(t *testing.T) {
 	}
 }
 
-type TestElem struct {
-	Test1 int64
-	Test2 int8
-}
-
-type TestStruct struct {
-	Sub [10]struct {
-		Sub2 struct {
-			Size  int `struct:"uint32,sizeof=Elems"`
-			Elems []TestElem
-		} `struct:"skip=4"`
-	} `struct:"skip=2"`
-	Numbers  [128]int64
-	Numbers2 []float64 `struct:"[256]float32"`
-}
-
-func TestSizeOf(t *testing.T) {
-	tests := []struct {
-		input interface{}
-		size  int
-	}{
-		{int8(0), 1},
-		{int16(0), 2},
-		{int32(0), 4},
-		{int64(0), 8},
-		{uint8(0), 1},
-		{uint16(0), 2},
-		{uint32(0), 4},
-		{uint64(0), 8},
-		{float32(0), 4},
-		{float64(0), 8},
-		{complex64(0), 8},
-		{complex128(0), 16},
-		{[0]int8{}, 0},
-		{[1]int8{1}, 1},
-		{[]int8{1, 2}, 2},
-		{[]int32{1, 2}, 8},
-		{[2][3]int8{}, 6},
-		{struct{}{}, 0},
-		{struct{ A int8 }{}, 1},
-		{struct{ A []int8 }{[]int8{}}, 0},
-		{struct{ A [0]int8 }{[0]int8{}}, 0},
-		{struct{ A []int8 }{[]int8{1}}, 1},
-		{struct{ A [1]int8 }{[1]int8{1}}, 1},
-		{TestStruct{}, 2130},
-		{interface{}(struct{}{}), 0},
-		{struct{ Test interface{} }{}, 0},
-
-		// Unexported fields test
-		{struct{ a int8 }{}, 0},
-		{struct{ a []int8 }{[]int8{}}, 0},
-		{struct{ a [0]int8 }{[0]int8{}}, 0},
-		{struct{ a []int8 }{[]int8{1}}, 0},
-		{struct{ a [1]int8 }{[1]int8{1}}, 0},
-
-		// Trivial unnamed fields test
-		{struct{ _ [1]int8 }{}, 1},
-		{struct {
-			_ [1]int8 `struct:"skip=4"`
-		}{}, 5},
-
-		// Non-trivial unnamed fields test
-		{struct{ _ []interface{} }{}, 0},
-		{struct{ _ [1]interface{} }{}, 0},
-		{struct {
-			_ [1]interface{} `struct:"skip=4"`
-		}{}, 4},
-		{struct {
-			_ [4]struct {
-				_ [4]struct{} `struct:"skip=4"`
-			} `struct:"skip=4"`
-		}{}, 20},
-		{struct{ T string }{"yeehaw"}, 6},
-	}
-
-	for _, test := range tests {
-		field := fieldFromType(reflect.TypeOf(test.input))
-		assert.Equal(t, test.size, field.SizeOf(reflect.ValueOf(test.input)),
-			"bad size for input: %#v", test.input)
-	}
-}
-
-var simpleFields fields
-var complexFields fields
-
-func init() {
-	RegisterArrayType([256]float32{})
-	simpleFields = fieldsFromStruct(reflect.TypeOf(TestElem{}))
-	complexFields = fieldsFromStruct(reflect.TypeOf(TestStruct{}))
-}
-
-func TestSizeOfFields(t *testing.T) {
-	assert.Equal(t, simpleFields.SizeOf(reflect.ValueOf(TestElem{})), 9)
-	assert.Equal(t, complexFields.SizeOf(reflect.ValueOf(TestStruct{})), 2130)
-}
-
 func BenchmarkFieldsFromStruct(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		fieldsFromStruct(reflect.TypeOf(TestStruct{}))
-	}
-}
-
-func BenchmarkSizeOfSimple(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		simpleFields.SizeOf(reflect.ValueOf(TestElem{}))
-	}
-}
-
-func BenchmarkSizeOfComplex(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		complexFields.SizeOf(reflect.ValueOf(TestStruct{}))
 	}
 }

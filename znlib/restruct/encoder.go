@@ -20,138 +20,84 @@ type Packer interface {
 }
 
 type encoder struct {
+	structstack
 	order      binary.ByteOrder
-	buf        []byte
-	struc      reflect.Value
 	sfields    []field
-	bitCounter uint8
+	bitCounter int
+	bitSize    int
+}
+
+func getBit(buf []byte, bitSize int, bit int) byte {
+	bit = bitSize - 1 - bit
+	return (buf[len(buf)-bit/8-1] >> (uint(bit) % 8)) & 1
+}
+
+func (e *encoder) writeBit(value byte) {
+	e.buf[0] |= (value & 1) << uint(7-e.bitCounter)
+	e.bitCounter++
+	if e.bitCounter >= 8 {
+		e.buf = e.buf[1:]
+		e.bitCounter -= 8
+	}
 }
 
 func (e *encoder) writeBits(f field, inBuf []byte) {
+	var encodedBits int
 
-	var inputLength = uint8(len(inBuf))
-
-	if f.BitSize == 0 {
-		// Having problems with complex64 type ... so we asume we want to read all
-		//f.BitSize = uint8(f.Type.Bits())
-		f.BitSize = 8 * inputLength
-	}
-	// destPos: Destination position ( in the result ) of the first bit in the first byte
-	var destPos = 8 - e.bitCounter
-
-	// originPos: Original position of the first bit in the first byte
-	var originPos = f.BitSize % 8
-	if originPos == 0 {
-		originPos = 8
-	}
-
-	// numBytes: number of complete bytes to hold the result
-	var numBytes = f.BitSize / 8
-
-	// numBits: number of remaining bits in the first non-complete byte of the result
-	var numBits = f.BitSize % 8
-
-	// number of positions we have to shift the bytes to get the result
-	var shift uint8
-	if originPos > destPos {
-		shift = originPos - destPos
+	// Determine encoded size in bits.
+	if e.bitSize == 0 {
+		encodedBits = 8 * len(inBuf)
 	} else {
-		shift = destPos - originPos
+		encodedBits = int(e.bitSize)
+
+		// HACK: Go's generic endianness abstraction is not great if you are
+		// working with bits directly. Here we hardcode a case for little endian
+		// because there is no other obvious way to deal with it.
+		//
+		// Crop input buffer to relevant bytes only.
+		if e.order == binary.LittleEndian {
+			inBuf = inBuf[:(encodedBits+7)/8]
+		} else {
+			inBuf = inBuf[len(inBuf)-(encodedBits+7)/8:]
+		}
 	}
-	shift = shift % 8
 
-	var inputInitialIdx = inputLength - numBytes
-	if numBits > 0 {
-		inputInitialIdx = inputInitialIdx - 1
-	}
-
-	if originPos < destPos {
-		// shift left
-		carry := func(idx uint8) uint8 {
-			if (idx + 1) < inputLength {
-				return (inBuf[idx+1] >> (8 - shift))
-			}
-			return 0x00
-
-		}
-		mask := func(idx uint8) uint8 {
-			if idx == 0 {
-				return (0x01 << destPos) - 1
-			}
-			return 0xFF
-		}
-		var idx uint8
-		for inIdx := inputInitialIdx; inIdx < inputLength; inIdx++ {
-			e.buf[idx] |= ((inBuf[inIdx] << shift) | carry(inIdx)) & mask(idx)
-			idx++
-		}
-
+	if e.bitCounter == 0 && encodedBits%8 == 0 {
+		// Fast path: we are fully byte-aligned.
+		copy(e.buf, inBuf)
+		e.buf = e.buf[len(inBuf):]
 	} else {
-		// originPos >= destPos => shift right
-		var idx uint8
-		// carry : is a little bit tricky in this case because of the first case
-		// when idx == 0 and there is no carry at all
-		carry := func(idx uint8) uint8 {
-			if idx == 0 {
-				return 0x00
-			}
-			return (inBuf[idx-1] << (8 - shift))
-		}
-		mask := func(idx uint8) uint8 {
-			if idx == 0 {
-				return (0x01 << destPos) - 1
-			}
-			return 0xFF
-		}
-		inIdx := inputInitialIdx
-		for ; inIdx < inputLength; inIdx++ {
-			//note: Should the mask be done BEFORE the OR with carry?
-			e.buf[idx] |= ((inBuf[inIdx] >> shift) | carry(inIdx)) & mask(idx)
-			idx++
-		}
-		if ((e.bitCounter + f.BitSize) % 8) > 0 {
-			e.buf[idx] |= carry(inIdx)
+		// Slow path: work bit-by-bit.
+		// TODO: This needs to be optimized in a way that can be easily
+		// understood; the previous optimized version was simply too hard to
+		// reason about.
+		for i := 0; i < encodedBits; i++ {
+			e.writeBit(getBit(inBuf, encodedBits, i))
 		}
 	}
-
-	e.bitCounter += f.BitSize
-	e.buf = e.buf[e.bitCounter/8:]
-	e.bitCounter %= 8
-	return
 }
 
 func (e *encoder) write8(f field, x uint8) {
-	typeSize := uint8(reflect.TypeOf(x).Size())
-
-	b := make([]byte, typeSize)
+	b := make([]byte, 1)
 	b[0] = x
 	e.writeBits(f, b)
 }
 
 func (e *encoder) write16(f field, x uint16) {
-	typeSize := uint8(reflect.TypeOf(x).Size())
-
-	b := make([]byte, typeSize)
-	e.order.PutUint16(b[0:typeSize], x)
-
+	b := make([]byte, 2)
+	e.order.PutUint16(b, x)
 	e.writeBits(f, b)
 }
 
 func (e *encoder) write32(f field, x uint32) {
-	typeSize := uint8(reflect.TypeOf(x).Size())
-
-	b := make([]byte, typeSize)
-	e.order.PutUint32(b[0:typeSize], x)
-
+	b := make([]byte, 4)
+	e.order.PutUint32(b, x)
 	e.writeBits(f, b)
 }
 
 func (e *encoder) write64(f field, x uint64) {
-	typeSize := uint8(reflect.TypeOf(x).Size())
-
-	b := make([]byte, typeSize)
-	e.order.PutUint64(b[0:typeSize], x)
-
+	b := make([]byte, 8)
+	e.order.PutUint64(b, x)
 	e.writeBits(f, b)
 }
 
@@ -163,12 +109,17 @@ func (e *encoder) writeS32(f field, x int32) { e.write32(f, uint32(x)) }
 
 func (e *encoder) writeS64(f field, x int64) { e.write64(f, uint64(x)) }
 
-func (e *encoder) skipn(count int) {
-	e.buf = e.buf[count:]
+func (e *encoder) skipBits(count int) {
+	e.bitCounter += count % 8
+	if e.bitCounter > 8 {
+		e.bitCounter -= 8
+		count += 8
+	}
+	e.buf = e.buf[count/8:]
 }
 
 func (e *encoder) skip(f field, v reflect.Value) {
-	e.skipn(f.SizeOf(v))
+	e.skipBits(e.fieldbits(f, v))
 }
 
 func (e *encoder) packer(v reflect.Value) (Packer, bool) {
@@ -225,7 +176,65 @@ func (e *encoder) uintFromField(f field, v reflect.Value) uint64 {
 	}
 }
 
+func (e *encoder) switc(f field, v reflect.Value, on interface{}) {
+	var def *switchcase
+
+	if v.Kind() != reflect.Struct {
+		panic(fmt.Errorf("%s: only switches on structs are valid", f.Name))
+	}
+
+	sfields := cachedFieldsFromStruct(f.BinaryType)
+	l := len(sfields)
+
+	for i := 0; i < l; i++ {
+		f := sfields[i]
+		v := v.Field(f.Index)
+
+		if f.Flags&DefaultFlag != 0 {
+			if def != nil {
+				panic(fmt.Errorf("%s: only one default case is allowed", f.Name))
+			}
+			def = &switchcase{f, v}
+			continue
+		}
+
+		if f.CaseExpr == nil {
+			panic(fmt.Errorf("%s: only cases are valid inside switches", f.Name))
+		}
+
+		if e.evalExpr(f.CaseExpr) == on {
+			e.write(f, v)
+			return
+		}
+	}
+
+	if def != nil {
+		e.write(def.f, def.v)
+	}
+}
+
 func (e *encoder) write(f field, v reflect.Value) {
+	if f.Flags&RootFlag == RootFlag {
+		e.setancestor(f, v, e.root())
+		return
+	}
+
+	if f.Flags&ParentFlag == ParentFlag {
+		for i := 1; i < len(e.stack); i++ {
+			if e.setancestor(f, v, e.ancestor(i)) {
+				break
+			}
+		}
+		return
+	}
+
+	if f.SwitchExpr != nil {
+		e.switc(f, v, e.evalExpr(f.SwitchExpr))
+		return
+	}
+
+	struc := e.ancestor(0)
+
 	if f.Name != "_" {
 		if s, ok := e.packer(v); ok {
 			var err error
@@ -236,11 +245,14 @@ func (e *encoder) write(f field, v reflect.Value) {
 			return
 		}
 	} else {
-		e.skipn(f.SizeOf(v))
+		e.skipBits(e.fieldbits(f, v))
 		return
 	}
 
-	struc := e.struc
+	if !e.evalIf(f) {
+		return
+	}
+
 	sfields := e.sfields
 	order := e.order
 
@@ -250,8 +262,10 @@ func (e *encoder) write(f field, v reflect.Value) {
 	}
 
 	if f.Skip != 0 {
-		e.skipn(f.Skip)
+		e.skipBits(f.Skip * 8)
 	}
+
+	e.bitSize = e.evalBits(f)
 
 	// If this is a sizeof field, pull the current slice length into it.
 	if f.TIndex != -1 {
@@ -267,18 +281,38 @@ func (e *encoder) write(f field, v reflect.Value) {
 		}
 	}
 
+	ov := v
+	if f.OutExpr != nil {
+		ov = reflect.ValueOf(e.evalExpr(f.OutExpr))
+	}
+
 	switch f.BinaryType.Kind() {
+	case reflect.Ptr:
+		// Skip if pointer is nil.
+		if v.IsNil() {
+			return
+		}
+
+		e.write(f.Elem(), v.Elem())
+
 	case reflect.Array, reflect.Slice, reflect.String:
 		switch f.NativeType.Kind() {
-		case reflect.Array, reflect.Slice, reflect.String:
+		case reflect.Slice, reflect.String:
+			if f.SizeExpr != nil {
+				if l := e.evalSize(f); l != ov.Len() {
+					panic(fmt.Errorf("length does not match size expression (%d != %d)", ov.Len(), l))
+				}
+			}
+			fallthrough
+		case reflect.Array:
 			ef := f.Elem()
-			len := v.Len()
+			len := ov.Len()
 			cap := len
 			if f.BinaryType.Kind() == reflect.Array {
 				cap = f.BinaryType.Len()
 			}
 			for i := 0; i < len; i++ {
-				e.write(ef, v.Index(i))
+				e.write(ef, ov.Index(i))
 			}
 			for i := len; i < cap; i++ {
 				e.write(ef, reflect.New(f.BinaryType.Elem()).Elem())
@@ -288,12 +322,12 @@ func (e *encoder) write(f field, v reflect.Value) {
 		}
 
 	case reflect.Struct:
-		e.struc = v
+		e.push(ov)
 		e.sfields = cachedFieldsFromStruct(f.BinaryType)
 		l := len(e.sfields)
 		for i := 0; i < l; i++ {
 			sf := e.sfields[i]
-			sv := v.Field(sf.Index)
+			sv := ov.Field(sf.Index)
 			if sv.CanSet() {
 				e.write(sf, sv)
 			} else {
@@ -301,37 +335,37 @@ func (e *encoder) write(f field, v reflect.Value) {
 			}
 		}
 		e.sfields = sfields
-		e.struc = struc
+		e.pop(ov)
 
 	case reflect.Int8:
-		e.writeS8(f, int8(e.intFromField(f, v)))
+		e.writeS8(f, int8(e.intFromField(f, ov)))
 	case reflect.Int16:
-		e.writeS16(f, int16(e.intFromField(f, v)))
+		e.writeS16(f, int16(e.intFromField(f, ov)))
 	case reflect.Int32:
-		e.writeS32(f, int32(e.intFromField(f, v)))
+		e.writeS32(f, int32(e.intFromField(f, ov)))
 	case reflect.Int64:
-		e.writeS64(f, int64(e.intFromField(f, v)))
+		e.writeS64(f, int64(e.intFromField(f, ov)))
 
 	case reflect.Uint8, reflect.Bool:
-		e.write8(f, uint8(e.uintFromField(f, v)))
+		e.write8(f, uint8(e.uintFromField(f, ov)))
 	case reflect.Uint16:
-		e.write16(f, uint16(e.uintFromField(f, v)))
+		e.write16(f, uint16(e.uintFromField(f, ov)))
 	case reflect.Uint32:
-		e.write32(f, uint32(e.uintFromField(f, v)))
+		e.write32(f, uint32(e.uintFromField(f, ov)))
 	case reflect.Uint64:
-		e.write64(f, uint64(e.uintFromField(f, v)))
+		e.write64(f, uint64(e.uintFromField(f, ov)))
 
 	case reflect.Float32:
-		e.write32(f, math.Float32bits(float32(v.Float())))
+		e.write32(f, math.Float32bits(float32(ov.Float())))
 	case reflect.Float64:
-		e.write64(f, math.Float64bits(float64(v.Float())))
+		e.write64(f, math.Float64bits(float64(ov.Float())))
 
 	case reflect.Complex64:
-		x := v.Complex()
+		x := ov.Complex()
 		e.write32(f, math.Float32bits(float32(real(x))))
 		e.write32(f, math.Float32bits(float32(imag(x))))
 	case reflect.Complex128:
-		x := v.Complex()
+		x := ov.Complex()
 		e.write64(f, math.Float64bits(float64(real(x))))
 		e.write64(f, math.Float64bits(float64(imag(x))))
 	}

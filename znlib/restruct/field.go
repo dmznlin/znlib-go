@@ -2,10 +2,25 @@ package restruct
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
+
+	"github.com/dmznlin/znlib-go/znlib/restruct/expr"
 )
+
+// ErrInvalidSize is returned when sizefrom is used on an invalid type.
+var ErrInvalidSize = errors.New("size specified on fixed size type")
+
+// ErrInvalidSizeOf is returned when sizefrom is used on an invalid type.
+var ErrInvalidSizeOf = errors.New("sizeof specified on fixed size type")
+
+// ErrInvalidSizeFrom is returned when sizefrom is used on an invalid type.
+var ErrInvalidSizeFrom = errors.New("sizefrom specified on fixed size type")
+
+// ErrInvalidBits is returned when bits is used on an invalid type.
+var ErrInvalidBits = errors.New("bits specified on non-bitwise type")
 
 // FieldFlags is a type for flags that can be applied to fields individually.
 type FieldFlags uint64
@@ -18,6 +33,15 @@ const (
 	// InvertedBoolFlag causes the true and false states of a boolean to be
 	// flipped in binary.
 	InvertedBoolFlag
+
+	// RootFlag is set when the field points to the root struct.
+	RootFlag
+
+	// ParentFlag is set when the field points to the parent struct.
+	ParentFlag
+
+	// DefaultFlag is set when the field is designated as a switch case default.
+	DefaultFlag
 )
 
 // Sizer is a type which has a defined size in binary. The SizeOf function
@@ -27,6 +51,12 @@ const (
 // used by value.
 type Sizer interface {
 	SizeOf() int
+}
+
+// BitSizer is an interface for types that need to specify their own size in
+// bit-level granularity. It has the same effect as Sizer.
+type BitSizer interface {
+	BitSize() int
 }
 
 // field represents a structure field, similar to reflect.StructField.
@@ -42,6 +72,17 @@ type field struct {
 	Trivial    bool
 	BitSize    uint8
 	Flags      FieldFlags
+	IsRoot     bool
+	IsParent   bool
+
+	IfExpr     *expr.Program
+	SizeExpr   *expr.Program
+	BitsExpr   *expr.Program
+	InExpr     *expr.Program
+	OutExpr    *expr.Program
+	WhileExpr  *expr.Program
+	SwitchExpr *expr.Program
+	CaseExpr   *expr.Program
 }
 
 // fields represents a structure.
@@ -73,7 +114,7 @@ func (f *field) Elem() field {
 		TIndex:     -1,
 		SIndex:     -1,
 		Skip:       0,
-		Trivial:    f.Trivial,
+		Trivial:    isTypeTrivial(t.Elem()),
 	}
 }
 
@@ -89,6 +130,36 @@ func fieldFromType(typ reflect.Type) field {
 		Skip:       0,
 		Trivial:    isTypeTrivial(typ),
 	}
+}
+
+func validBitType(typ reflect.Type) bool {
+	switch typ.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
+		reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16,
+		reflect.Uint32, reflect.Uint64, reflect.Float32,
+		reflect.Complex64, reflect.Complex128:
+		return true
+	default:
+		return false
+	}
+}
+
+func validSizeType(typ reflect.Type) bool {
+	switch typ.Kind() {
+	case reflect.Slice, reflect.String:
+		return true
+	default:
+		return false
+	}
+}
+
+func parseExpr(sources ...string) *expr.Program {
+	for _, s := range sources {
+		if s != "" {
+			return expr.ParseString(s)
+		}
+	}
+	return nil
 }
 
 // fieldsFromStruct returns a slice of fields for binary packing and unpacking.
@@ -115,6 +186,24 @@ func fieldsFromStruct(typ reflect.Type) (result fields) {
 			continue
 		}
 
+		if opts.RootFlag {
+			result = append(result, field{
+				Name:  val.Name,
+				Index: i,
+				Flags: RootFlag,
+			})
+			continue
+		}
+
+		if opts.ParentFlag {
+			result = append(result, field{
+				Name:  val.Name,
+				Index: i,
+				Flags: ParentFlag,
+			})
+			continue
+		}
+
 		// Derive type
 		ftyp := val.Type
 		if opts.Type != nil {
@@ -125,6 +214,9 @@ func fieldsFromStruct(typ reflect.Type) (result fields) {
 		sindex := -1
 		tindex := -1
 		if j, ok := sizeOfMap[val.Name]; ok {
+			if !validSizeType(val.Type) {
+				panic(ErrInvalidSizeOf)
+			}
 			sindex = j
 			result[sindex].TIndex = i
 			delete(sizeOfMap, val.Name)
@@ -134,6 +226,9 @@ func fieldsFromStruct(typ reflect.Type) (result fields) {
 
 		// SizeFrom
 		if opts.SizeFrom != "" {
+			if !validSizeType(val.Type) {
+				panic(ErrInvalidSizeFrom)
+			}
 			for j := 0; j < i; j++ {
 				val := result[j]
 				if opts.SizeFrom == val.Name {
@@ -146,6 +241,22 @@ func fieldsFromStruct(typ reflect.Type) (result fields) {
 			}
 		}
 
+		// Expr
+		ifExpr := parseExpr(opts.IfExpr, val.Tag.Get("struct-if"))
+		sizeExpr := parseExpr(opts.SizeExpr, val.Tag.Get("struct-size"))
+		bitsExpr := parseExpr(opts.BitsExpr, val.Tag.Get("struct-bits"))
+		inExpr := parseExpr(opts.InExpr, val.Tag.Get("struct-in"))
+		outExpr := parseExpr(opts.OutExpr, val.Tag.Get("struct-out"))
+		whileExpr := parseExpr(opts.WhileExpr, val.Tag.Get("struct-while"))
+		switchExpr := parseExpr(opts.SwitchExpr, val.Tag.Get("struct-switch"))
+		caseExpr := parseExpr(opts.CaseExpr, val.Tag.Get("struct-case"))
+		if sizeExpr != nil && !validSizeType(val.Type) {
+			panic(ErrInvalidSize)
+		}
+		if bitsExpr != nil && !validBitType(ftyp) {
+			panic(ErrInvalidBits)
+		}
+
 		// Flags
 		flags := FieldFlags(0)
 		if opts.VariantBoolFlag {
@@ -153,6 +264,9 @@ func fieldsFromStruct(typ reflect.Type) (result fields) {
 		}
 		if opts.InvertedBoolFlag {
 			flags |= InvertedBoolFlag
+		}
+		if opts.DefaultFlag {
+			flags |= DefaultFlag
 		}
 
 		result = append(result, field{
@@ -167,6 +281,14 @@ func fieldsFromStruct(typ reflect.Type) (result fields) {
 			Trivial:    isTypeTrivial(ftyp),
 			BitSize:    opts.BitSize,
 			Flags:      flags,
+			IfExpr:     ifExpr,
+			SizeExpr:   sizeExpr,
+			BitsExpr:   bitsExpr,
+			InExpr:     inExpr,
+			OutExpr:    outExpr,
+			WhileExpr:  whileExpr,
+			SwitchExpr: switchExpr,
+			CaseExpr:   caseExpr,
 		})
 	}
 
@@ -197,6 +319,9 @@ func cachedFieldsFromStruct(typ reflect.Type) (result fields) {
 
 // isTypeTrivial determines if a given type is constant-size.
 func isTypeTrivial(typ reflect.Type) bool {
+	if typ == nil {
+		return false
+	}
 	switch typ.Kind() {
 	case reflect.Bool,
 		reflect.Int,
@@ -245,95 +370,30 @@ func (f *field) sizer(v reflect.Value) (Sizer, bool) {
 	return nil, false
 }
 
-// SizeOf determines what the binary size of the field should be.
-func (f *field) SizeOf(val reflect.Value) (size int) {
-	if f.Name != "_" {
-		if s, ok := f.sizer(val); ok {
-			return s.SizeOf()
-		}
-	} else {
-		// Non-trivial, unnamed fields do not make sense. You can't set a field
-		// with no name, so the elements can't possibly differ.
-		// N.B.: Though skip will still work, use struct{} instead for skip.
-		if !isTypeTrivial(val.Type()) {
-			return f.Skip
-		}
+func (f *field) bitSizer(v reflect.Value) (BitSizer, bool) {
+	if s, ok := v.Interface().(BitSizer); ok {
+		return s, true
 	}
 
-	alen := 1
-	switch f.BinaryType.Kind() {
-	case reflect.Int8, reflect.Uint8, reflect.Bool:
-		return 1 + f.Skip
-	case reflect.Int16, reflect.Uint16:
-		return 2 + f.Skip
-	case reflect.Int, reflect.Int32,
-		reflect.Uint, reflect.Uint32,
-		reflect.Float32:
-		return 4 + f.Skip
-	case reflect.Int64, reflect.Uint64,
-		reflect.Float64, reflect.Complex64:
-		return 8 + f.Skip
-	case reflect.Complex128:
-		return 16 + f.Skip
-	case reflect.Slice, reflect.String:
-		switch f.NativeType.Kind() {
-		case reflect.Slice, reflect.String, reflect.Array, reflect.Ptr:
-			alen = val.Len()
-		default:
-			return 0
-		}
-		fallthrough
-	case reflect.Array, reflect.Ptr:
-		size += f.Skip
-
-		// If array type, get length from type.
-		if f.BinaryType.Kind() == reflect.Array {
-			alen = f.BinaryType.Len()
-		}
-
-		// Optimization: if the array/slice is empty, bail now.
-		if alen == 0 {
-			return size
-		}
-
-		// Optimization: if the type is trivial, we only need to check the
-		// first element.
-		switch f.NativeType.Kind() {
-		case reflect.Slice, reflect.String, reflect.Array, reflect.Ptr:
-			elem := f.Elem()
-			if f.Trivial {
-				size += elem.SizeOf(reflect.Zero(f.BinaryType.Elem())) * alen
-			} else {
-				for i := 0; i < alen; i++ {
-					size += elem.SizeOf(val.Index(i))
-				}
-			}
-		}
-		return size
-	case reflect.Struct:
-		size += f.Skip
-		var bitSize uint64
-		for _, field := range cachedFieldsFromStruct(f.BinaryType) {
-			if field.BitSize != 0 {
-				bitSize += uint64(field.BitSize)
-			} else {
-				size += field.SizeOf(val.Field(field.Index))
-			}
-		}
-		size += int(bitSize / 8)
-		if bitSize%8 > 0 {
-			size++
-		}
-		return size
-	default:
-		return 0
+	if !v.CanAddr() {
+		return nil, false
 	}
+
+	if s, ok := v.Addr().Interface().(BitSizer); ok {
+		return s, true
+	}
+
+	return nil, false
 }
 
-// SizeOf returns the size of a struct.
-func (fields fields) SizeOf(val reflect.Value) (size int) {
-	for _, field := range fields {
-		size += field.SizeOf(val.Field(field.Index))
+func (f *field) bitSizeUsingInterface(val reflect.Value) (int, bool) {
+	if s, ok := f.bitSizer(val); ok {
+		return s.BitSize(), true
 	}
-	return
+
+	if s, ok := f.sizer(val); ok {
+		return s.SizeOf() * 8, true
+	}
+
+	return 0, false
 }

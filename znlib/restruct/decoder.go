@@ -18,116 +18,149 @@ type Unpacker interface {
 }
 
 type decoder struct {
+	structstack
 	order      binary.ByteOrder
-	buf        []byte
-	struc      reflect.Value
 	sfields    []field
 	bitCounter uint8
+	bitSize    int
 }
 
-func (d *decoder) readBits(f field, outputLength uint8) []byte {
-	output := make([]byte, outputLength)
+func putBit(buf []byte, bitSize int, bit int, val byte) {
+	bit = bitSize - 1 - bit
+	buf[len(buf)-bit/8-1] |= (val) << (uint(bit) % 8)
+}
 
-	if f.BitSize == 0 {
-		// Having problems with complex64 type ... so we asume we want to read all
-		// f.BitSize = uint8(f.Type.Bits())
-		f.BitSize = 8 * outputLength
+func (d *decoder) readBit() byte {
+	value := (d.buf[0] >> uint(7-d.bitCounter)) & 1
+	d.bitCounter++
+	if d.bitCounter >= 8 {
+		d.buf = d.buf[1:]
+		d.bitCounter -= 8
 	}
+	return value
+}
 
-	// originPos: Original position of the first bit in the first byte
-	originPos := 8 - d.bitCounter
+func (d *decoder) readBits(f field, outBuf []byte) {
+	var decodedBits int
 
-	// destPos: Destination position ( in the result ) of the first bit in the first byte
-	destPos := f.BitSize % 8
-	if destPos == 0 {
-		destPos = 8
-	}
+	// Determine encoded size in bits.
+	if d.bitSize == 0 {
+		decodedBits = 8 * len(outBuf)
+	} else {
+		decodedBits = int(d.bitSize)
 
-	// numBytes: number of complete bytes to hold the result
-	numBytes := f.BitSize / 8
-
-	// numBits: number of remaining bits in the first non-complete byte of the result
-	numBits := f.BitSize % 8
-
-	// number of positions we have to shift the bytes to get the result
-	shift := (originPos - destPos) % 8
-
-	outputInitialIdx := outputLength - numBytes
-	if numBits > 0 {
-		outputInitialIdx = outputInitialIdx - 1
-	}
-	o := output[outputInitialIdx:]
-	if originPos < destPos { // shift left
-		for idx := range o {
-			// TODO: Control the number of bytes of d.buf ... we need to read ahead
-			carry := d.buf[idx+1] >> (8 - shift)
-			o[idx] = (d.buf[idx] << shift) | carry
-		}
-	} else { // originPos >= destPos => shift right
-		// carry : is a little bit tricky in this case because of the first case
-		// when idx == 0 and there is no carry at all
-		carry := func(idx int) uint8 {
-			if idx == 0 {
-				return 0x00
-			}
-			return (d.buf[idx-1] << (8 - shift))
-		}
-
-		for idx := range o {
-			o[idx] = (d.buf[idx] >> shift) | carry(idx)
+		// HACK: Go's generic endianness abstraction is not great if you are
+		// working with bits directly. Here we hardcode a case for little endian
+		// because there is no other obvious way to deal with it.
+		//
+		// Crop output buffer to relevant bytes only.
+		if d.order == binary.LittleEndian {
+			outBuf = outBuf[:(decodedBits+7)/8]
+		} else {
+			outBuf = outBuf[len(outBuf)-(decodedBits+7)/8:]
 		}
 	}
 
-	// here the output is calculated ... but the first byte may have some extra bits
-	// therefore we apply a mask to erase those unaddressable bits
-	output[outputInitialIdx] &= ((0x01 << destPos) - 1)
-
-	d.bitCounter += f.BitSize
-	d.buf = d.buf[d.bitCounter/8:]
-	d.bitCounter %= 8
-	return output
+	if d.bitCounter == 0 && decodedBits%8 == 0 {
+		// Fast path: we are fully byte-aligned.
+		copy(outBuf, d.buf)
+		d.buf = d.buf[len(outBuf):]
+	} else {
+		// Slow path: work bit-by-bit.
+		// TODO: This needs to be optimized in a way that can be easily
+		// understood; the previous optimized version was simply too hard to
+		// reason about.
+		for i := 0; i < decodedBits; i++ {
+			putBit(outBuf, decodedBits, i, d.readBit())
+		}
+	}
 }
 
-func (d *decoder) read8(f field) uint8 {
-	rawdata := d.readBits(f, 1)
-	return uint8(rawdata[0])
+func (d *decoder) extend8(val uint8, signed bool) uint8 {
+	if signed && d.bitSize != 0 && val&1<<uint(d.bitSize-1) != 0 {
+		val |= ^((1 << uint(d.bitSize)) - 1)
+	}
+	return val
 }
 
-func (d *decoder) read16(f field) uint16 {
-	rawdata := d.readBits(f, 2)
-	return d.order.Uint16(rawdata)
+func (d *decoder) extend16(val uint16, signed bool) uint16 {
+	if signed && d.bitSize != 0 && val&1<<uint(d.bitSize-1) != 0 {
+		val |= ^((1 << uint(d.bitSize)) - 1)
+	}
+	return val
 }
 
-func (d *decoder) read32(f field) uint32 {
-	rawdata := d.readBits(f, 4)
-	return d.order.Uint32(rawdata)
+func (d *decoder) extend32(val uint32, signed bool) uint32 {
+	if signed && d.bitSize != 0 && val&1<<uint(d.bitSize-1) != 0 {
+		val |= ^((1 << uint(d.bitSize)) - 1)
+	}
+	return val
 }
 
-func (d *decoder) read64(f field) uint64 {
-	rawdata := d.readBits(f, 8)
-	return d.order.Uint64(rawdata)
+func (d *decoder) extend64(val uint64, signed bool) uint64 {
+	if signed && d.bitSize != 0 && val&(1<<uint(d.bitSize-1)) != 0 {
+		val |= ^((1 << uint(d.bitSize)) - 1)
+	}
+	return val
 }
 
-func (d *decoder) readS8(f field) int8 { return int8(d.read8(f)) }
+func (d *decoder) read8(f field, extend bool) uint8 {
+	b := make([]byte, 1)
+	d.readBits(f, b)
+	return d.extend8(uint8(b[0]), extend)
+}
 
-func (d *decoder) readS16(f field) int16 { return int16(d.read16(f)) }
+func (d *decoder) read16(f field, extend bool) uint16 {
+	b := make([]byte, 2)
+	d.readBits(f, b)
+	return d.extend16(d.order.Uint16(b), extend)
+}
 
-func (d *decoder) readS32(f field) int32 { return int32(d.read32(f)) }
+func (d *decoder) read32(f field, extend bool) uint32 {
+	b := make([]byte, 4)
+	d.readBits(f, b)
+	return d.extend32(d.order.Uint32(b), extend)
+}
 
-func (d *decoder) readS64(f field) int64 { return int64(d.read64(f)) }
+func (d *decoder) read64(f field, extend bool) uint64 {
+	b := make([]byte, 8)
+	d.readBits(f, b)
+	return d.extend64(d.order.Uint64(b), extend)
+}
 
-func (d *decoder) readn(count int) []byte {
+func (d *decoder) readU8(f field) uint8 { return uint8(d.read8(f, false)) }
+
+func (d *decoder) readU16(f field) uint16 { return uint16(d.read16(f, false)) }
+
+func (d *decoder) readU32(f field) uint32 { return uint32(d.read32(f, false)) }
+
+func (d *decoder) readU64(f field) uint64 { return uint64(d.read64(f, false)) }
+
+func (d *decoder) readS8(f field) int8 { return int8(d.read8(f, true)) }
+
+func (d *decoder) readS16(f field) int16 { return int16(d.read16(f, true)) }
+
+func (d *decoder) readS32(f field) int32 { return int32(d.read32(f, true)) }
+
+func (d *decoder) readS64(f field) int64 { return int64(d.read64(f, true)) }
+
+func (d *decoder) readBytes(count int) []byte {
 	x := d.buf[0:count]
 	d.buf = d.buf[count:]
 	return x
 }
 
-func (d *decoder) skipn(count int) {
-	d.buf = d.buf[count:]
+func (d *decoder) skipBits(count int) {
+	d.bitCounter += uint8(count % 8)
+	if d.bitCounter > 8 {
+		d.bitCounter -= 8
+		count += 8
+	}
+	d.buf = d.buf[count/8:]
 }
 
 func (d *decoder) skip(f field, v reflect.Value) {
-	d.skipn(f.SizeOf(v))
+	d.skipBits(d.fieldbits(f, v))
 }
 
 func (d *decoder) unpacker(v reflect.Value) (Unpacker, bool) {
@@ -172,7 +205,71 @@ func (d *decoder) setInt(f field, v reflect.Value, x int64) {
 	}
 }
 
+func (d *decoder) switc(f field, v reflect.Value, on interface{}) {
+	var def *switchcase
+
+	if v.Kind() != reflect.Struct {
+		panic(fmt.Errorf("%s: only switches on structs are valid", f.Name))
+	}
+
+	sfields := cachedFieldsFromStruct(f.BinaryType)
+	l := len(sfields)
+
+	// Zero out values for decoding.
+	for i := 0; i < l; i++ {
+		v := v.Field(f.Index)
+		v.Set(reflect.Zero(v.Type()))
+	}
+
+	for i := 0; i < l; i++ {
+		f := sfields[i]
+		v := v.Field(f.Index)
+
+		if f.Flags&DefaultFlag != 0 {
+			if def != nil {
+				panic(fmt.Errorf("%s: only one default case is allowed", f.Name))
+			}
+			def = &switchcase{f, v}
+			continue
+		}
+
+		if f.CaseExpr == nil {
+			panic(fmt.Errorf("%s: only cases are valid inside switches", f.Name))
+		}
+
+		if d.evalExpr(f.CaseExpr) == on {
+			d.read(f, v)
+			return
+		}
+	}
+
+	if def != nil {
+		d.read(def.f, def.v)
+	}
+}
+
 func (d *decoder) read(f field, v reflect.Value) {
+	if f.Flags&RootFlag == RootFlag {
+		d.setancestor(f, v, d.root())
+		return
+	}
+
+	if f.Flags&ParentFlag == ParentFlag {
+		for i := 1; i < len(d.stack); i++ {
+			if d.setancestor(f, v, d.ancestor(i)) {
+				break
+			}
+		}
+		return
+	}
+
+	if f.SwitchExpr != nil {
+		d.switc(f, v, d.evalExpr(f.SwitchExpr))
+		return
+	}
+
+	struc := d.ancestor(0)
+
 	if f.Name != "_" {
 		if s, ok := d.unpacker(v); ok {
 			var err error
@@ -183,11 +280,14 @@ func (d *decoder) read(f field, v reflect.Value) {
 			return
 		}
 	} else {
-		d.skipn(f.SizeOf(v))
+		d.skipBits(d.fieldbits(f, v))
 		return
 	}
 
-	struc := d.struc
+	if !d.evalIf(f) {
+		return
+	}
+
 	sfields := d.sfields
 	order := d.order
 
@@ -197,42 +297,29 @@ func (d *decoder) read(f field, v reflect.Value) {
 	}
 
 	if f.Skip != 0 {
-		d.skipn(f.Skip)
+		d.skipBits(f.Skip * 8)
 	}
 
-	if f.SIndex != -1 {
+	d.bitSize = d.evalBits(f)
+	alen := d.evalSize(f)
+
+	if alen == 0 && f.SIndex != -1 {
 		sv := struc.Field(f.SIndex)
 		l := len(sfields)
 		for i := 0; i < l; i++ {
 			if sfields[i].Index != f.SIndex {
 				continue
 			}
-
 			sf := sfields[i]
-			sl := 0
-
 			// Must use different codepath for signed/unsigned.
 			switch sf.BinaryType.Kind() {
 			case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				sl = int(sv.Int())
+				alen = int(sv.Int())
 			case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				sl = int(sv.Uint())
+				alen = int(sv.Uint())
 			default:
 				panic(fmt.Errorf("unsupported size type %s: %s", sf.BinaryType.String(), sf.Name))
 			}
-
-			// Strings are immutable, but we make a blank one so that we can
-			// figure out the size later. It might be better to do something
-			// more hackish, like writing the length into the string...
-			switch f.NativeType.Kind() {
-			case reflect.Slice:
-				v.Set(reflect.MakeSlice(f.BinaryType, sl, sl))
-			case reflect.String:
-				v.SetString(string(make([]byte, sl)))
-			default:
-				panic(fmt.Errorf("unsupported size target %s", f.NativeType.String()))
-			}
-
 			break
 		}
 	}
@@ -243,13 +330,13 @@ func (d *decoder) read(f field, v reflect.Value) {
 
 		// If the underlying value is a slice, initialize it.
 		if f.NativeType.Kind() == reflect.Slice {
-			v.Set(reflect.MakeSlice(reflect.SliceOf(f.BinaryType.Elem()), l, l))
+			v.Set(reflect.MakeSlice(reflect.SliceOf(f.NativeType.Elem()), l, l))
 		}
 
 		switch f.NativeType.Kind() {
 		case reflect.String:
 			// When using strings, treat as C string.
-			str := string(d.readn(f.SizeOf(v)))
+			str := string(d.readBytes(d.fieldbytes(f, v)))
 			nul := strings.IndexByte(str, 0)
 			if nul != -1 {
 				str = str[0:nul]
@@ -265,7 +352,7 @@ func (d *decoder) read(f field, v reflect.Value) {
 		}
 
 	case reflect.Struct:
-		d.struc = v
+		d.push(v)
 		d.sfields = cachedFieldsFromStruct(f.BinaryType)
 		l := len(d.sfields)
 		for i := 0; i < l; i++ {
@@ -278,23 +365,52 @@ func (d *decoder) read(f field, v reflect.Value) {
 			}
 		}
 		d.sfields = sfields
-		d.struc = struc
+		d.pop(v)
+
+	case reflect.Ptr:
+		v.Set(reflect.New(v.Type().Elem()))
+		d.read(f.Elem(), v.Elem())
 
 	case reflect.Slice, reflect.String:
-		switch f.NativeType.Kind() {
-		case reflect.String:
-			l := v.Len()
-			v.SetString(string(d.readn(l)))
-		case reflect.Slice, reflect.Array:
+		fixed := func() {
 			switch f.NativeType.Elem().Kind() {
 			case reflect.Uint8:
-				v.SetBytes(d.readn(f.SizeOf(v)))
+				v.SetBytes(d.readBytes(d.fieldbytes(f, v)))
 			default:
-				l := v.Len()
 				ef := f.Elem()
-				for i := 0; i < l; i++ {
+				for i := 0; i < alen; i++ {
 					d.read(ef, v.Index(i))
 				}
+			}
+		}
+		switch f.NativeType.Kind() {
+		case reflect.String:
+			v.SetString(string(d.readBytes(alen)))
+		case reflect.Array:
+			if f.WhileExpr != nil {
+				i := 0
+				ef := f.Elem()
+				for d.evalWhile(f) {
+					d.read(ef, v.Index(i))
+					i++
+				}
+			} else {
+				fixed()
+			}
+		case reflect.Slice:
+			if f.WhileExpr != nil {
+				switch f.NativeType.Kind() {
+				case reflect.Slice:
+					ef := f.Elem()
+					for d.evalWhile(f) {
+						nv := reflect.New(ef.NativeType).Elem()
+						d.read(ef, nv)
+						v.Set(reflect.Append(v, nv))
+					}
+				}
+			} else {
+				v.Set(reflect.MakeSlice(f.NativeType, alen, alen))
+				fixed()
 			}
 		default:
 			panic(fmt.Errorf("invalid array cast type: %s", f.NativeType.String()))
@@ -310,28 +426,32 @@ func (d *decoder) read(f field, v reflect.Value) {
 		d.setInt(f, v, d.readS64(f))
 
 	case reflect.Uint8, reflect.Bool:
-		d.setUint(f, v, uint64(d.read8(f)))
+		d.setUint(f, v, uint64(d.readU8(f)))
 	case reflect.Uint16:
-		d.setUint(f, v, uint64(d.read16(f)))
+		d.setUint(f, v, uint64(d.readU16(f)))
 	case reflect.Uint32:
-		d.setUint(f, v, uint64(d.read32(f)))
+		d.setUint(f, v, uint64(d.readU32(f)))
 	case reflect.Uint64:
-		d.setUint(f, v, d.read64(f))
+		d.setUint(f, v, d.readU64(f))
 
 	case reflect.Float32:
-		v.SetFloat(float64(math.Float32frombits(d.read32(f))))
+		v.SetFloat(float64(math.Float32frombits(d.read32(f, false))))
 	case reflect.Float64:
-		v.SetFloat(math.Float64frombits(d.read64(f)))
+		v.SetFloat(math.Float64frombits(d.read64(f, false)))
 
 	case reflect.Complex64:
 		v.SetComplex(complex(
-			float64(math.Float32frombits(d.read32(f))),
-			float64(math.Float32frombits(d.read32(f))),
+			float64(math.Float32frombits(d.read32(f, false))),
+			float64(math.Float32frombits(d.read32(f, false))),
 		))
 	case reflect.Complex128:
 		v.SetComplex(complex(
-			math.Float64frombits(d.read64(f)),
-			math.Float64frombits(d.read64(f)),
+			math.Float64frombits(d.read64(f, false)),
+			math.Float64frombits(d.read64(f, false)),
 		))
+	}
+
+	if f.InExpr != nil {
+		v.Set(reflect.ValueOf(d.evalExpr(f.InExpr)))
 	}
 }

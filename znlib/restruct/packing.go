@@ -87,19 +87,23 @@ Flags are comma-separated keys. The following are available:
 func Unpack(data []byte, order binary.ByteOrder, v interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = r.(error)
+			var ok bool
+			if err, ok = r.(error); !ok {
+				panic(err)
+			}
 		}
 	}()
 
 	f, val := fieldFromIntf(v)
-	d := decoder{order: order, buf: data}
+	ss := structstack{allowexpr: expressionsEnabled, buf: data}
+	d := decoder{structstack: ss, order: order}
 	d.read(f, val)
 
 	return
 }
 
 /*
-SizeOf returns the serialized size of the structure passed, in memory.
+SizeOf returns the binary encoded size of the given value, in bytes.
 */
 func SizeOf(v interface{}) (size int, err error) {
 	defer func() {
@@ -108,8 +112,24 @@ func SizeOf(v interface{}) (size int, err error) {
 		}
 	}()
 
+	ss := structstack{allowexpr: expressionsEnabled}
 	f, val := fieldFromIntf(v)
-	return f.SizeOf(val), nil
+	return ss.fieldbytes(f, val), nil
+}
+
+/*
+BitSize returns the binary encoded size of the given value, in bits.
+*/
+func BitSize(v interface{}) (size int, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+	}()
+
+	ss := structstack{allowexpr: expressionsEnabled}
+	f, val := fieldFromIntf(v)
+	return ss.fieldbits(f, val), nil
 }
 
 /*
@@ -129,10 +149,13 @@ func Pack(order binary.ByteOrder, v interface{}) (data []byte, err error) {
 		}
 	}()
 
-	f, val := fieldFromIntf(v)
-	data = make([]byte, f.SizeOf(val))
+	ss := structstack{allowexpr: expressionsEnabled, buf: []byte{}}
 
-	e := encoder{buf: data, order: order}
+	f, val := fieldFromIntf(v)
+	data = make([]byte, ss.fieldbytes(f, val))
+
+	ss.buf = data
+	e := encoder{structstack: ss, order: order}
 	e.write(f, val)
 
 	return
