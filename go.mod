@@ -7,6 +7,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/forgoer/openssl v1.2.1
 	github.com/go-redis/redis/v8 v8.11.5
+	github.com/goburrow/serial v0.1.0
 	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lestrrat/go-file-rotatelogs v0.0.0-20180223000712-d3151e2a480f
