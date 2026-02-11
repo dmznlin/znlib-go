@@ -161,12 +161,13 @@ func (rt *rtuTransport) WriteRawData(data []byte) error {
 		time.Sleep(t * (-1))
 	}
 
+	ts := time.Now()
 	n, err := rt.link.Write(data)
 	if err != nil {
 		return err
 	}
 
-	rt.lastActivity = time.Now().Add(rt.t1 * time.Duration(n))
+	rt.lastActivity = ts.Add(rt.t1 * time.Duration(n))
 	return nil
 }
 

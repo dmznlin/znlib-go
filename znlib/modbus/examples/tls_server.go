@@ -1,8 +1,8 @@
 package main
 
 import (
-	"crypto/x509"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"os"
 	"sync"
@@ -90,14 +90,14 @@ import (
 
 func main() {
 	var err            error
-	var eh             *exampleHandler
+	var eh             *empHandler
 	var server         *modbus.ModbusServer
 	var serverKeyPair  tls.Certificate
 	var clientCertPool *x509.CertPool
 	var ticker         *time.Ticker
 
 	// create the handler object
-	eh = &exampleHandler{}
+	eh = &empHandler{}
 
 	// load the server certificate and its associated private key, which
 	// are used to authenticate the server to the client.
@@ -165,7 +165,7 @@ func main() {
 }
 
 // Example handler object, passed to the NewServer() constructor above.
-type exampleHandler struct {
+type empHandler struct {
 	// this lock is used to avoid concurrency issues between goroutines, as
 	// handler methods are called from different goroutines
 	// (1 goroutine per client)
@@ -179,7 +179,7 @@ type exampleHandler struct {
 // Holding register handler method.
 // This method gets called whenever a valid modbus request asking for a holding register
 // operation is received by the server.
-func (eh *exampleHandler) HandleHoldingRegisters(req *modbus.HoldingRegistersRequest) (res []uint16, err error) {
+func (eh *empHandler) HandleHoldingRegisters(req *modbus.HoldingRegistersRequest) (res []uint16, err error) {
 	var regAddr	uint16
 
 	// require the "operator" role for write operations (i.e. set the clock).
@@ -231,7 +231,7 @@ func (eh *exampleHandler) HandleHoldingRegisters(req *modbus.HoldingRegistersReq
 }
 
 // input registers are not used by this server.
-func (eh *exampleHandler) HandleInputRegisters(req *modbus.InputRegistersRequest) (res []uint16, err error) {
+func (eh *empHandler) HandleInputRegisters(req *modbus.InputRegistersRequest) (res []uint16, err error) {
 	// this is the equivalent of saying
 	// "input registers are not supported by this device"
 	err = modbus.ErrIllegalFunction
@@ -239,7 +239,7 @@ func (eh *exampleHandler) HandleInputRegisters(req *modbus.InputRegistersRequest
 }
 
 // coils are not used by this server.
-func (eh *exampleHandler) HandleCoils(req *modbus.CoilsRequest) (res []bool, err error) {
+func (eh *empHandler) HandleCoils(req *modbus.CoilsRequest) (res []bool, err error) {
 	// this is the equivalent of saying
 	// "coils are not supported by this device"
 	err = modbus.ErrIllegalFunction
@@ -247,7 +247,7 @@ func (eh *exampleHandler) HandleCoils(req *modbus.CoilsRequest) (res []bool, err
 }
 
 // discrete inputs are not used by this server.
-func (eh *exampleHandler) HandleDiscreteInputs(req *modbus.DiscreteInputsRequest) (res []bool, err error) {
+func (eh *empHandler) HandleDiscreteInputs(req *modbus.DiscreteInputsRequest) (res []bool, err error) {
 	// this is the equivalent of saying
 	// "discrete inputs are not supported by this device"
 	err = modbus.ErrIllegalFunction
