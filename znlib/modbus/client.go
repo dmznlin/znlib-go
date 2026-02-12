@@ -204,6 +204,11 @@ func (mc *ModbusClient) Open() (err error) {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
+	// +dmzn:has open
+	if mc.transport != nil {
+		return nil
+	}
+
 	switch mc.transportType {
 	case modbusRTU:
 		// create a serial port wrapper object
@@ -327,6 +332,11 @@ func (mc *ModbusClient) Close() (err error) {
 
 	if mc.transport != nil {
 		err = mc.transport.Close()
+
+		// +dmzn: nil for re-open
+		if err == nil {
+			mc.transport = nil
+		}
 	}
 
 	return
