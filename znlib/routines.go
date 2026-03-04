@@ -6,10 +6,11 @@
 package znlib
 
 import (
-	"github.com/dmznlin/znlib-go/znlib/copier"
-	"github.com/pkg/errors"
 	"sync"
 	"time"
+
+	"github.com/dmznlin/znlib-go/znlib/copier"
+	"github.com/pkg/errors"
 )
 
 // RoutineGroup routine组
@@ -165,18 +166,22 @@ func (wt *Waiter[T]) Wakeup(result *T, direct ...bool) {
 		//需要复制(保护)结果
 
 		if result != nil && cp {
-			var val T
-			err := copier.Copy(&val, result)
+			if wt.val == nil {
+				wt.val = new(T)
+			}
+
+			err := copier.Copy(wt.val, result) //复制内容(deep-copy),避免传递时外部修改
 			if err != nil {
 				ErrorCaller(err, "znlib.routines.Wakeup")
+				wt.done <- false
 				return
 			}
-			//复制内容(deep-copy),避免传递时外部修改
-			result = &val
+		} else {
+			wt.val = result
 		}
 
-		wt.val = result
 		wt.done <- true
+		//数据有效标记
 	}
 }
 
@@ -194,7 +199,7 @@ func (wt *Waiter[T]) Reset() {
 		for {
 			select {
 			case <-wt.done:
-				//移除唤醒信号
+			// 移除唤醒信号
 			default:
 				break loop
 			}
