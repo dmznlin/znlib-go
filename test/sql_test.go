@@ -2,10 +2,12 @@ package test
 
 import (
 	"fmt"
-	. "github.com/dmznlin/znlib-go/znlib"
-	_ "github.com/mattn/go-adodb"
 	"testing"
 	"time"
+
+	. "github.com/dmznlin/znlib-go/znlib"
+	. "github.com/dmznlin/znlib-go/znlib/db"
+	_ "github.com/mattn/go-adodb"
 )
 
 type PS struct {
@@ -39,7 +41,7 @@ func TestGetDB(t *testing.T) {
 	rg := NewRoutineGroup()
 	rg.Run(func(arg ...interface{}) {
 		for i := 0; i < 3; i++ {
-			conn, err := DBManager.GetDB("mssql_main")
+			conn, err := Manager.GetDB("mssql_main")
 			if err == nil {
 				var users = struct {
 					Name string `db:"U_Name"`
@@ -104,7 +106,7 @@ func (a typeA) Msg() {
 func TestTrans(t *testing.T) {
 	rg := NewRoutineGroup()
 	rg.Run(func(arg ...interface{}) {
-		conn, err := DBManager.GetDB("mssql_main")
+		conn, err := Manager.GetDB("mssql_main")
 		if err != nil {
 			t.Error(err)
 		}

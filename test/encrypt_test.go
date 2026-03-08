@@ -9,7 +9,7 @@ import (
 func TestDes(t *testing.T) {
 	var str = []byte("sa")
 	var key = []byte("1234567890123456")
-	var crypt *znlib.Encrypter = znlib.NewEncrypter(znlib.EncryptAES_ECB, key)
+	var crypt *znlib.Encrypter = znlib.NewEncrypter(znlib.EncryptAesEcb, key)
 
 	data, err := crypt.Encrypt(str, true)
 	if err != nil || !znlib.Equal(data, []byte("MdRTvC/0/iEjl8K1waWtIw==")) {
@@ -25,7 +25,7 @@ func TestDes(t *testing.T) {
 		t.Log(string(data))
 	}
 	//------------------------------------------------------------------------------------------------------------------
-	crypt.Method = znlib.EncryptDES_ECB
+	crypt.Method = znlib.EncryptDesEcb
 	crypt.NewKey([]byte(znlib.DefaultEncryptKey))
 
 	data, err = crypt.Encrypt(str, true)
@@ -42,7 +42,7 @@ func TestDes(t *testing.T) {
 		t.Log(string(data))
 	}
 	//------------------------------------------------------------------------------------------------------------------
-	crypt.Method = znlib.EncryptBase64_STD
+	crypt.Method = znlib.EncryptBase64Std
 	data, err = crypt.EncodeBase64(str)
 	if err != nil || !znlib.Equal(data, []byte("c2E=")) {
 		t.Errorf("znlib.EncodeBase64 wrong")
@@ -66,7 +66,7 @@ func TestDes(t *testing.T) {
 	znlib.Info(fmt.Sprintf("%d -> %d", len(key), len(data)))
 
 	var buf []byte
-	buf, err = znlib.NewEncrypter(znlib.EncryptBase64_STD, nil).EncodeBase64(data)
+	buf, err = znlib.NewEncrypter(znlib.EncryptBase64Std, nil).EncodeBase64(data)
 	if !znlib.Equal(buf, []byte("H4sIAAAAAAAA/zI0MjYxNTO3sDSAsAABAAD//7fNXx4QAAAA")) {
 		t.Errorf("znlib.Zipper.ZipData wrong")
 	}

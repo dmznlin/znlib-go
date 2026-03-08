@@ -9,29 +9,30 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"io"
+
 	"github.com/forgoer/openssl"
 	"github.com/pkg/errors"
-	"io"
 )
 
 // EncryptMethod 加密算法
 type EncryptMethod = byte
 
 const (
-	EncryptAES_ECB EncryptMethod = iota
-	EncryptAES_CBC
+	EncryptAesEcb EncryptMethod = iota
+	EncryptAesCbc
 	//AES: 密钥的长度可以是 16/24/32 个字符（128/192/256 位）
 
-	EncryptDES_ECB
-	EncryptDES_CBC
+	EncryptDesEcb
+	EncryptDesCbc
 	//DES: 密钥的长度必须为 8 个字符（64 位）
 
-	Encrypt3DES_ECB
-	Encrypt3DES_CBC
+	Encrypt3desEcb
+	Encrypt3desCbc
 	//3DES: 密钥的长度必须为 24 个字符（192 位）
 
-	EncryptBase64_STD
-	EncryptBase64_URl
+	EncryptBase64Std
+	EncryptBase64Url
 	//Base64: StdEncoding,URLEncoding
 )
 
@@ -84,37 +85,37 @@ func (cyp *Encrypter) NewKey(key []byte) {
  描述: 数据加密
 */
 func (cyp *Encrypter) Encrypt(data []byte, encode bool, iv ...[]byte) (dst []byte, err error) {
-	var iv_data []byte
+	var ivData []byte
 	switch cyp.Method {
-	case EncryptAES_CBC, EncryptDES_CBC, Encrypt3DES_CBC:
+	case EncryptAesCbc, EncryptDesCbc, Encrypt3desCbc:
 		if iv == nil {
-			iv_data = cyp.Key
+			ivData = cyp.Key
 		} else {
-			iv_data = iv[0]
+			ivData = iv[0]
 		}
 	default:
-		iv_data = make([]byte, 0)
+		ivData = make([]byte, 0)
 	}
 
 	switch cyp.Method {
-	case EncryptAES_ECB:
+	case EncryptAesEcb:
 		dst, err = openssl.AesECBEncrypt(data, cyp.Key, cyp.Padding)
-	case EncryptAES_CBC:
-		dst, err = openssl.AesCBCEncrypt(data, cyp.Key, iv_data, cyp.Padding)
-	case EncryptDES_ECB:
+	case EncryptAesCbc:
+		dst, err = openssl.AesCBCEncrypt(data, cyp.Key, ivData, cyp.Padding)
+	case EncryptDesEcb:
 		dst, err = openssl.DesECBEncrypt(data, cyp.Key, cyp.Padding)
-	case EncryptDES_CBC:
-		dst, err = openssl.DesCBCEncrypt(data, cyp.Key, iv_data, cyp.Padding)
-	case Encrypt3DES_ECB:
+	case EncryptDesCbc:
+		dst, err = openssl.DesCBCEncrypt(data, cyp.Key, ivData, cyp.Padding)
+	case Encrypt3desEcb:
 		dst, err = openssl.Des3ECBEncrypt(data, cyp.Key, cyp.Padding)
-	case Encrypt3DES_CBC:
-		dst, err = openssl.Des3CBCEncrypt(data, cyp.Key, iv_data, cyp.Padding)
+	case Encrypt3desCbc:
+		dst, err = openssl.Des3CBCEncrypt(data, cyp.Key, ivData, cyp.Padding)
 	default:
 		return nil, ErrorMsg(nil, "znlib.encrypt.Encrypt: invalid method.")
 	}
 
 	if err == nil && encode {
-		return NewEncrypter(EncryptBase64_STD, nil).EncodeBase64(dst)
+		return NewEncrypter(EncryptBase64Std, nil).EncodeBase64(dst)
 	}
 	return
 }
@@ -128,37 +129,37 @@ func (cyp *Encrypter) Encrypt(data []byte, encode bool, iv ...[]byte) (dst []byt
 */
 func (cyp *Encrypter) Decrypt(data []byte, encode bool, iv ...[]byte) (dst []byte, err error) {
 	if encode {
-		data, err = NewEncrypter(EncryptBase64_STD, nil).DecodeBase64(data)
+		data, err = NewEncrypter(EncryptBase64Std, nil).DecodeBase64(data)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	var iv_data []byte
+	var ivData []byte
 	switch cyp.Method {
-	case EncryptAES_CBC, EncryptDES_CBC, Encrypt3DES_CBC:
+	case EncryptAesCbc, EncryptDesCbc, Encrypt3desCbc:
 		if iv == nil {
-			iv_data = cyp.Key
+			ivData = cyp.Key
 		} else {
-			iv_data = iv[0]
+			ivData = iv[0]
 		}
 	default:
-		iv_data = make([]byte, 0)
+		ivData = make([]byte, 0)
 	}
 
 	switch cyp.Method {
-	case EncryptAES_ECB:
+	case EncryptAesEcb:
 		dst, err = openssl.AesECBDecrypt(data, cyp.Key, cyp.Padding)
-	case EncryptAES_CBC:
-		dst, err = openssl.AesCBCDecrypt(data, cyp.Key, iv_data, cyp.Padding)
-	case EncryptDES_ECB:
+	case EncryptAesCbc:
+		dst, err = openssl.AesCBCDecrypt(data, cyp.Key, ivData, cyp.Padding)
+	case EncryptDesEcb:
 		dst, err = openssl.DesECBDecrypt(data, cyp.Key, cyp.Padding)
-	case EncryptDES_CBC:
-		dst, err = openssl.DesCBCDecrypt(data, cyp.Key, iv_data, cyp.Padding)
-	case Encrypt3DES_ECB:
+	case EncryptDesCbc:
+		dst, err = openssl.DesCBCDecrypt(data, cyp.Key, ivData, cyp.Padding)
+	case Encrypt3desEcb:
 		dst, err = openssl.Des3ECBDecrypt(data, cyp.Key, cyp.Padding)
-	case Encrypt3DES_CBC:
-		dst, err = openssl.Des3CBCDecrypt(data, cyp.Key, iv_data, cyp.Padding)
+	case Encrypt3desCbc:
+		dst, err = openssl.Des3CBCDecrypt(data, cyp.Key, ivData, cyp.Padding)
 	default:
 		return nil, ErrorMsg(nil, "znlib.encrypt.Decrypt: invalid method.")
 	}
@@ -174,9 +175,9 @@ func (cyp *Encrypter) Decrypt(data []byte, encode bool, iv ...[]byte) (dst []byt
 func (cyp *Encrypter) EncodeBase64(data []byte) (dst []byte, err error) {
 	var encoding *base64.Encoding
 	switch cyp.Method {
-	case EncryptBase64_STD:
+	case EncryptBase64Std:
 		encoding = base64.StdEncoding
-	case EncryptBase64_URl:
+	case EncryptBase64Url:
 		encoding = base64.URLEncoding
 	default:
 		return nil, ErrorMsg(nil, "znlib.encrypt.EncodeBase64: invalid method.")
@@ -195,9 +196,9 @@ func (cyp *Encrypter) EncodeBase64(data []byte) (dst []byte, err error) {
 func (cyp *Encrypter) DecodeBase64(data []byte) (dst []byte, err error) {
 	var encoding *base64.Encoding
 	switch cyp.Method {
-	case EncryptBase64_STD:
+	case EncryptBase64Std:
 		encoding = base64.StdEncoding
-	case EncryptBase64_URl:
+	case EncryptBase64Url:
 		encoding = base64.URLEncoding
 	default:
 		return nil, ErrorMsg(nil, "znlib.encrypt.DecodeBase64: invalid method.")

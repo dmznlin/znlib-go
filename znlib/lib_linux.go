@@ -26,7 +26,7 @@ func mutexLock(st *singleton, caller string) bool {
 		lockPath = AppPath
 	}
 
-	//进程PID文件
+	//进程 PID 文件
 	st.fileName = lockPath + st.mutex + ".pid"
 
 	_, err := os.Stat(st.fileName)
@@ -35,7 +35,7 @@ func mutexLock(st *singleton, caller string) bool {
 		return false
 	}
 
-	//创建进程PID文件
+	//创建进程 PID 文件
 	st.fileHandle, err = os.OpenFile(st.fileName, os.O_RDONLY|os.O_CREATE, os.ModePerm)
 	if err != nil {
 		ErrorCaller(err, caller)

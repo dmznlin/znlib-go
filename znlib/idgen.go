@@ -11,12 +11,13 @@ package znlib
 
 import (
 	"encoding/binary"
-	"github.com/gofrs/uuid"
 	"math"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gofrs/uuid"
 )
 
 const (
@@ -34,32 +35,23 @@ const (
 	twepoch  = int64(1589923200000) //常量时间戳(毫秒): 2020-05-20 08:00:00 +0800 CST
 )
 
-type snowflakeWorker struct {
+type SnowflakeWorker struct {
 	mu           sync.Mutex
-	LastStamp    int64 // 记录上一次ID的时间戳
-	WorkerID     int64 // 该节点的ID
+	LastStamp    int64 // 记录上一次 ID的时间戳
+	WorkerID     int64 // 该节点的 ID
 	DataCenterID int64 // 该节点的 数据中心ID
 	Sequence     int64 // 当前毫秒已经生成的ID序列号(从0 开始累加) 1毫秒内最多生成4096个ID
 }
 
 // SnowflakeID 全局雪花算法对象
-var SnowflakeID *snowflakeWorker = nil
+var SnowflakeID *SnowflakeWorker = nil
 
-// snowflakeConfig 配置参数
-var snowflakeConfig = struct {
-	workerID     int64
-	datacenterID int64
-}{
-	workerID:     1,
-	datacenterID: 0,
-}
-
-// initSnowflake 2022-08-11 19:03:40
-/*
- 描述: 初始化对象
-*/
-func initSnowflake() {
-	SnowflakeID = NewSnowflake(snowflakeConfig.workerID, snowflakeConfig.datacenterID)
+func init() {
+	Application.RegisterInitHandler(func(cfg *LibConfig) {
+		if cfg.Snow.Enable {
+			SnowflakeID = NewSnowflake(cfg.Snow.WorkerID, cfg.Snow.Datacenter)
+		}
+	})
 }
 
 // NewSnowflake 2022-08-10 11:42:26
@@ -68,8 +60,8 @@ func initSnowflake() {
  参数: dataCenterID,数据中心标识
  描述: 分布式情况下,应通过外部配置文件或其他方式为每台机器分配独立的id
 */
-func NewSnowflake(workerID, dataCenterID int64) *snowflakeWorker {
-	return &snowflakeWorker{
+func NewSnowflake(workerID, dataCenterID int64) *SnowflakeWorker {
+	return &SnowflakeWorker{
 		WorkerID:     workerID,
 		LastStamp:    0,
 		Sequence:     0,
@@ -77,7 +69,7 @@ func NewSnowflake(workerID, dataCenterID int64) *snowflakeWorker {
 	}
 }
 
-func (w *snowflakeWorker) getMilliSeconds() int64 {
+func (w *SnowflakeWorker) getMilliSeconds() int64 {
 	return time.Now().UnixNano() / 1e6
 }
 
@@ -85,7 +77,7 @@ func (w *snowflakeWorker) getMilliSeconds() int64 {
 /*
  描述: 生成序列号
 */
-func (w *snowflakeWorker) NextID() (uint64, error) {
+func (w *SnowflakeWorker) NextID() (uint64, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -115,13 +107,13 @@ func (w *snowflakeWorker) NextID() (uint64, error) {
  参数: encode,是否编码
  描述: 生成字符串序列号
 */
-func (w *snowflakeWorker) NextStr(encode ...bool) (string, error) {
+func (w *SnowflakeWorker) NextStr(encode ...bool) (string, error) {
 	id, err := w.NextID()
-	if err == nil {
-		return SerialID.ToString(id, encode...)
-	} else {
+	if err != nil {
 		return "", err
 	}
+
+	return SerialID.ToString(id, encode...)
 }
 
 //--------------------------------------------------------------------------------
@@ -173,11 +165,11 @@ func (w *serialIDWorker) ToString(id uint64, encode ...bool) (sid string, err er
 		buf := make([]byte, 8)
 		binary.BigEndian.PutUint64(buf, id)
 
-		buf, err = NewEncrypter(EncryptBase64_STD, nil).EncodeBase64(buf)
+		buf, err = NewEncrypter(EncryptBase64Std, nil).EncodeBase64(buf)
 		return string(buf), nil
-	} else {
-		return strconv.FormatUint(id, 10), nil
 	}
+
+	return strconv.FormatUint(id, 10), nil
 }
 
 // TimeID 2022-08-10 17:06:42
@@ -202,76 +194,23 @@ func (w *serialIDWorker) TimeID(year ...bool) string {
 	return string(append(buf[:pos], buf[pos+1:]...))
 }
 
-// DateID 2022-08-14 20:36:06
+// MakeID 2026-03-01 11:50:39
 /*
- 参数: key,id标识
- 参数: idlen,总长度
- 参数: prefix,前缀
- 描述: 生成key标识长度为idlen,每日从1递增的编号.
-
- 格式: 前缀 + 年月日 + 顺序编号,ex: 220814001
- 注意: 该函数依赖redis服务,使用相同redis.db生成的id唯一.
+ 参数: idLen,标识长度
+ 描述: 生成长度为 idLen 的标识
 */
-func (w *serialIDWorker) DateID(key string, idlen int, prefix ...string) (id string, err error) {
-	caller := "znlib.idgen.DateID"
-	defer DeferHandle(false, caller, func(e error) {
-		if e != nil {
-			err = ErrorMsg(e, caller)
-		}
-	})
-
-	lock := RedisClient.Lock(Redis_SyncLock_DateID, 3*time.Second, 10*time.Second)
-	if lock.err != nil {
-		return "", ErrorMsg(lock.err, caller)
-	}
-	defer lock.Unlock()
-
-	const (
-		field_base = "base"
-		field_date = "date"
-	)
-
-	var (
-		vals []interface{}
-		base = "1"
-		now  = DateTime2Str(time.Now(), "060102")
-	)
-
-	key = "znlib.serial.dateid:" + key
-	//避开key冲突
-
-	if RedisClient.Exists(Application.Ctx, key).Val() == 1 {
-		vals, err = RedisClient.HMGet(Application.Ctx, key, field_base, field_date).Result()
-		if err != nil {
-			return "", ErrorMsg(err, caller)
-		}
-
-		date := vals[1].(string)
-		if date == now { //
-			base = vals[0].(string)
-			val, e := strconv.ParseInt(base, 10, 64)
-			if e == nil {
-				val++
-				base = strconv.FormatInt(val, 10)
-			}
-		}
-	}
-
-	RedisClient.HMSet(Application.Ctx, key, map[string]string{field_base: base, field_date: now})
-	//更新编号参数
-	lock.Unlock()
-
-	if prefix != nil { //1.prefix
-		id = prefix[0]
-	}
-
-	id = id + now //2.date
-	num := idlen - len(id+base)
-	if num > 0 {
-		return id + strings.Repeat("0", num) + base, nil
+func (w *serialIDWorker) MakeID(idLen int) string {
+	suffix := w.TimeID(true) //后缀
+	idx := len(suffix)
+	if idx > idLen {
+		idx = idx - idLen
+		idLen = idx + idLen
 	} else {
-		return id + base, nil
+		idLen = idx
+		idx = 0
 	}
+
+	return suffix[idx:idLen]
 }
 
 //--------------------------------------------------------------------------------

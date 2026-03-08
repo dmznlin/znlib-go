@@ -9,11 +9,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/shopspring/decimal" //浮点数计算
 	"reflect"
 	"strconv"
 	"sync"
+
+	"github.com/pkg/errors"
+	"github.com/shopspring/decimal" //浮点数计算
 )
 
 // IsIn 2022-07-17 17:25:38
@@ -31,6 +32,8 @@ func IsIn(val interface{}, array interface{}) int {
 				return idx
 			}
 		}
+	default:
+		//do nothing
 	}
 
 	return -1
@@ -151,20 +154,20 @@ func ValueToDecimal(val interface{}) (decimal.Decimal, bool) {
 // IsNumber 2022-07-17 23:15:52
 /*
  参数: str,字符串
- 参数: isfloat,是否为浮点数
+ 参数: isFloat,是否为浮点数
  描述: 判断str是否为数值
 */
-func IsNumber(str string, isfloat ...bool) (decimal.Decimal, bool) {
+func IsNumber(str string, isFloat ...bool) (decimal.Decimal, bool) {
 	val, err := decimal.NewFromString(str)
 	if err != nil {
 		return decimal.Zero, false
 	}
 
-	if isfloat == nil {
+	if isFloat == nil {
 		return val, true
-	} else {
-		return val, isfloat[0] == true || val.IsInteger()
 	}
+
+	return val, isFloat[0] == true || val.IsInteger()
 }
 
 // ReflectValue 2022-07-19 11:12:17
@@ -176,9 +179,9 @@ func ReflectValue(obj interface{}) reflect.Value {
 	var val = reflect.ValueOf(obj)
 	if val.Kind() == reflect.Ptr {
 		return val.Elem()
-	} else {
-		return val
 	}
+
+	return val
 }
 
 // StructFieldsWalker 结构体步进函数
@@ -198,17 +201,17 @@ type StructFieldsWalker = func(field reflect.StructField, value reflect.Value, l
  描述: 检索obj的所有字段,并使用sw处理每个字段
 */
 func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
-	var curentLevel = 1
+	var curLevel = 1
 	if level != nil {
-		curentLevel = level[0]
-		if curentLevel < 1 {
-			curentLevel = 1
+		curLevel = level[0]
+		if curLevel < 1 {
+			curLevel = 1
 		}
 	}
 
 	if sw == nil { //no walker
 		str := "znlib.reflect.WalkStruct: walker is nil"
-		if curentLevel == 1 {
+		if curLevel == 1 {
 			Error(str)
 		}
 		return errors.New(str)
@@ -218,7 +221,7 @@ func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
 	objType := objValue.Type()
 	if objValue.Kind() != reflect.Struct { //invalid type
 		str := fmt.Sprintf("znlib.reflect.WalkStruct: [%s] is not struct", objType.Name())
-		if curentLevel == 1 {
+		if curLevel == 1 {
 			Error(str)
 		}
 		return errors.New(str)
@@ -229,14 +232,17 @@ func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
 		field := objType.Field(nIdx)
 		if field.IsExported() {
 			fieldValue := objValue.Field(nIdx)
-			next, err := sw(field, fieldValue, curentLevel)
+			next, err := sw(field, fieldValue, curLevel)
 
 			if err != nil {
 				return err
 			}
 
 			if next && fieldValue.Kind() == reflect.Struct {
-				WalkStruct(fieldValue.Interface(), sw, curentLevel+1)
+				err = WalkStruct(fieldValue.Interface(), sw, curLevel+1)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -247,7 +253,7 @@ func WalkStruct(obj interface{}, sw StructFieldsWalker, level ...int) error {
 type structTags struct {
 	typ      reflect.Type      //struct type
 	key      string            //tag(key)名
-	tagArray []string          //tag序列
+	tagArray []string          //tag 序列
 	tags     map[string]string //k:字段名;v:tag值
 }
 
@@ -385,7 +391,7 @@ func StructTagList(obj interface{}, key string, deep bool) ([]string, error) {
  参数: key,Tag名
  描述: 将obj转为网络字节流
 
- encoding/binary 不能用于编码大小不固定的任意值,所以结构体的字段需要"固定大小".如果您删除string字段并将int字段更改为int32,它将起作用.
+ encoding/binary 不能用于编码大小不固定的任意值,所以结构体的字段需要固定大小.如果您删除string字段并将int字段更改为int32,它将起作用.
  引用 binary.Write() :
  Write writes the binary representation of data into w. Data must be a fixed-size value or a slice of fixed-size values,
  or a pointer to such data.
@@ -404,7 +410,7 @@ func StructToBytes(obj interface{}, nBigEndian bool, key ...string) (data []byte
 
 	tagName := key[0]
 	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) (next bool, err error) {
-		if value.Kind() != reflect.Struct && field.Tag.Get(tagName) != "" { //包含指定tag
+		if value.Kind() != reflect.Struct && field.Tag.Get(tagName) != "" { //包含指定 tag
 			if nBigEndian {
 				err = binary.Write(buf, binary.BigEndian, value.Interface())
 			} else {

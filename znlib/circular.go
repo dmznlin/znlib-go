@@ -16,10 +16,10 @@ package znlib
 type CircularMode int8
 
 const (
-	Circular_FIFO         CircularMode = iota //队列模式: first in,first out
-	Circular_FIFO_FixSize                     //固定大小队列,旧数据被覆盖
-	Circular_FILO                             //栈模式: first in,last out
-	Circular_FILO_FixSize                     //固定大小栈,旧数据被覆盖
+	CircularFifo        CircularMode = iota //队列模式: first in,first out
+	CircularFifoMaxsize                     //固定大小队列,旧数据被覆盖
+	CircularFilo                            //栈模式: first in,last out
+	CircularFiloMaxsize                     //固定大小栈,旧数据被覆盖
 )
 
 // CircularMaxCap 队列最大容量
@@ -55,7 +55,7 @@ type CircularQueue[T any] struct {
  queue := NewCircularQueue[int](Circular_FIFO, 0)
 */
 func NewCircularQueue[T any](mode CircularMode, cap int, sync bool, max ...int) *CircularQueue[T] {
-	if mode > Circular_FILO_FixSize {
+	if mode > CircularFiloMaxsize {
 		ErrorCaller("invalid mode", "znlib.circular.NewCircularQueue")
 		return nil
 	}
@@ -118,7 +118,7 @@ func (cq *CircularQueue[T]) Push(values ...T) error {
 		}
 
 		if cq.tail.next == cq.head { //尾部没有空间
-			if cq.mode == Circular_FIFO_FixSize || cq.mode == Circular_FILO_FixSize { //固定大小,覆盖旧数据
+			if cq.mode == CircularFifoMaxsize || cq.mode == CircularFiloMaxsize { //固定大小,覆盖旧数据
 				cq.head = cq.head.next
 				cq.tail = cq.tail.next
 				cq.tail.data = val
@@ -159,14 +159,14 @@ func (cq *CircularQueue[T]) Pop(def T) (value T, ok bool) {
 	}
 
 	switch cq.mode {
-	case Circular_FIFO, Circular_FIFO_FixSize: //先进先出
+	case CircularFifo, CircularFifoMaxsize: //先进先出
 		value = cq.head.data
 		if cq.head == cq.tail { //最后一个元素
 			cq.tail = nil
 		} else {
 			cq.head = cq.head.next
 		}
-	case Circular_FILO, Circular_FILO_FixSize: //先进后出
+	case CircularFilo, CircularFiloMaxsize: //先进后出
 		value = cq.tail.data
 		if cq.head == cq.tail { //最后一个元素
 			cq.tail = nil
@@ -197,7 +197,7 @@ func (cq *CircularQueue[T]) MPop(num int) (values []T) {
 
 	for num > 0 {
 		switch cq.mode {
-		case Circular_FIFO, Circular_FIFO_FixSize: //先进先出
+		case CircularFifo, CircularFifoMaxsize: //先进先出
 			values[idx] = cq.head.data
 			idx++
 
@@ -206,7 +206,7 @@ func (cq *CircularQueue[T]) MPop(num int) (values []T) {
 			} else {
 				cq.head = cq.head.next
 			}
-		case Circular_FILO, Circular_FILO_FixSize: //先进后出
+		case CircularFilo, CircularFiloMaxsize: //先进后出
 			values[idx] = cq.tail.data
 			idx++
 
@@ -270,7 +270,7 @@ func (cq *CircularQueue[T]) Walk(walk func(idx int, value T, next *bool)) {
 	)
 
 	switch cq.mode {
-	case Circular_FIFO, Circular_FIFO_FixSize: //先进先出
+	case CircularFifo, CircularFifoMaxsize: //先进先出
 		cd := cq.head
 		for cd != nil {
 			walk(idx, cd.data, &next) //callback
@@ -285,7 +285,7 @@ func (cq *CircularQueue[T]) Walk(walk func(idx int, value T, next *bool)) {
 				idx++
 			}
 		}
-	case Circular_FILO, Circular_FILO_FixSize: //先进后出
+	case CircularFilo, CircularFiloMaxsize: //先进后出
 		cd := cq.tail
 		for cd != nil {
 			walk(idx, cd.data, &next) //callback

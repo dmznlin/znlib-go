@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
-	. "github.com/dmznlin/znlib-go/znlib"
-	"github.com/shopspring/decimal"
 	"strconv"
+
+	. "github.com/dmznlin/znlib-go/znlib"
+	"github.com/dmznlin/znlib-go/znlib/mqtt"
+	"github.com/shopspring/decimal"
 )
 
 func main() {
@@ -36,10 +38,10 @@ func main() {
 		Info(v.Div(decimal.NewFromInt32(3)).String())
 	}
 
-	Mqtt.StartWithUtils(nil)
+	mqtt.Client.Start(nil)
 
 	WaitSystemExit(func() error {
-		Mqtt.Stop()
+		mqtt.Client.Stop()
 		return nil
 	})
 

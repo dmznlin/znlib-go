@@ -24,7 +24,7 @@ const (
 //--------------------------------------------------------------------------------
 
 const (
-	Redis_SyncLock_DateID = "znlib.lockkey.dateid" //生成日期编号的事务锁标识
+	RedisSyncLockDateID = "znlib.lockkey.dateid" //生成日期编号的事务锁标识
 )
 
 //-----------------------------------------------------------------------------
@@ -46,34 +46,34 @@ type SqlDbType = string
 
 // 数据库类型定义
 const (
-	SQLDB_mssql      SqlDbType = "SqlServer"
-	SQLDB_mysql      SqlDbType = "MySQL"
-	SQLDB_db2        SqlDbType = "DB2"
-	SQLDB_oracle     SqlDbType = "Oracle"
-	SQLDB_postgreSQL SqlDbType = "PostgreSQL"
-	SQLDB_sqlite     SqlDbType = "Sqlite"
+	DBMssql    SqlDbType = "SqlServer"
+	DBMysql    SqlDbType = "MySQL"
+	DBDb2      SqlDbType = "DB2"
+	DBOracle   SqlDbType = "Oracle"
+	DBPostgres SqlDbType = "PostgreSQL"
+	DBSqlite   SqlDbType = "Sqlite"
 )
 
-// SQLDB_Types 数据库类型列表
-var SQLDB_Types = []SqlDbType{SQLDB_mssql, SQLDB_mysql, SQLDB_db2, SQLDB_oracle,
-	SQLDB_postgreSQL, SQLDB_sqlite}
+// DBTypes 数据库类型列表
+var DBTypes = []SqlDbType{DBMssql, DBMysql, DBDb2, DBOracle,
+	DBPostgres, DBSqlite}
 
 type SqlValueQuotes = string
 
 const (
-	SqlQuotes_Single SqlValueQuotes = "'"  //单引号
-	SqlQuotes_Double SqlValueQuotes = "\"" //双引号
+	QuotesSingle SqlValueQuotes = "'"  //单引号
+	QuotesDouble SqlValueQuotes = "\"" //双引号
 )
 
 type SqlDbFlag = string
 
-// 构建SQL的结构体Tag
+// 构建 SQL 的结构体Tag
 const (
-	SQLTag_Table SqlDbFlag = "table"
-	SQLTag_DB    SqlDbFlag = "db"
+	TagTable SqlDbFlag = "table"
+	TagDB    SqlDbFlag = "db"
 
-	SQLFlag_Insert SqlDbFlag = "i"
-	SQLFlag_Update SqlDbFlag = "u"
-	SQLFlag_Delete SqlDbFlag = "d"
-	SQLFlag_Select SqlDbFlag = "s"
+	FlagInsert SqlDbFlag = "i"
+	FlagUpdate SqlDbFlag = "u"
+	FlagDelete SqlDbFlag = "d"
+	FlagSelect SqlDbFlag = "s"
 )

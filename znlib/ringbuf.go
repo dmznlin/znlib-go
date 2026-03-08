@@ -103,11 +103,12 @@ func (rb *RingBuffer) VirtualRead(data []byte) (n int, err error) {
 
 		copy(data, rb.buf[rb.vr:rb.vr+n])
 		// move vr
-		rb.vr = (rb.vr + n) % rb.size
 
+		rb.vr = (rb.vr + n) % rb.size
 		if rb.vr == rb.w {
 			rb.isEmpty = true
 		}
+
 		return
 	}
 
@@ -246,9 +247,9 @@ func (rb *RingBuffer) PeekUint8() uint8 {
 	f, e := rb.Peek(1)
 	if len(e) > 0 {
 		return e[0]
-	} else {
-		return f[0]
 	}
+
+	return f[0]
 }
 
 // PeekUint16 2022-10-31 16:54:19
@@ -263,9 +264,9 @@ func (rb *RingBuffer) PeekUint16() uint16 {
 	f, e := rb.Peek(2)
 	if len(e) > 0 {
 		return binary.BigEndian.Uint16(rb.joinBytes(f, e))
-	} else {
-		return binary.BigEndian.Uint16(f)
 	}
+
+	return binary.BigEndian.Uint16(f)
 }
 
 // PeekUint32 2022-10-31 16:56:57
@@ -280,9 +281,9 @@ func (rb *RingBuffer) PeekUint32() uint32 {
 	f, e := rb.Peek(4)
 	if len(e) > 0 {
 		return binary.BigEndian.Uint32(rb.joinBytes(f, e))
-	} else {
-		return binary.BigEndian.Uint32(f)
 	}
+
+	return binary.BigEndian.Uint32(f)
 }
 
 // PeekUint64 2022-10-31 16:58:00
@@ -297,9 +298,9 @@ func (rb *RingBuffer) PeekUint64() uint64 {
 	f, e := rb.Peek(8)
 	if len(e) > 0 {
 		return binary.BigEndian.Uint64(rb.joinBytes(f, e))
-	} else {
-		return binary.BigEndian.Uint64(f)
 	}
+
+	return binary.BigEndian.Uint64(f)
 }
 
 // Read 2022-10-31 16:58:00
@@ -321,12 +322,15 @@ func (rb *RingBuffer) Read(data []byte) (n int, err error) {
 		if n > rb.w-rb.r {
 			n = rb.w - rb.r
 		}
+
 		copy(data, rb.buf[rb.r:rb.r+n])
 		// move readPtr
+
 		rb.r = (rb.r + n) % rb.size
 		if rb.r == rb.w {
 			rb.isEmpty = true
 		}
+
 		rb.vr = rb.r
 		return
 	}
@@ -532,24 +536,24 @@ func (rb *RingBuffer) Reset() {
  描述: 计算容量为cap时,需要扩容的值(参考切片append策略)
 */
 func (rb *RingBuffer) grow(cap int) int {
-	newcap := rb.size
-	doublecap := newcap + newcap
+	newCap := rb.size
+	doubleCap := newCap + newCap
 
-	if cap > doublecap {
-		newcap = cap
+	if cap > doubleCap {
+		newCap = cap
 	} else {
 		if rb.size < 1024 {
-			newcap = doublecap
+			newCap = doubleCap
 		} else {
-			for 0 < newcap && newcap < cap {
-				newcap += newcap / 4
+			for 0 < newCap && newCap < cap {
+				newCap += newCap / 4
 			}
-			if newcap <= 0 {
-				newcap = cap
+			if newCap <= 0 {
+				newCap = cap
 			}
 		}
 	}
-	return newcap
+	return newCap
 }
 
 // enlargeSpace 2022-10-29 17:48:16
@@ -558,7 +562,7 @@ func (rb *RingBuffer) grow(cap int) int {
  描述: 对ringbuffer扩容len(至少)
 */
 func (rb *RingBuffer) enlargeSpace(len int) {
-	vlen := rb.VirtualLength()
+	vLen := rb.VirtualLength()
 	newSize := rb.grow(rb.size + len)
 	newBuf := make([]byte, newSize)
 	oldLen := rb.Length()
@@ -566,7 +570,7 @@ func (rb *RingBuffer) enlargeSpace(len int) {
 
 	rb.w = oldLen
 	rb.r = 0
-	rb.vr = oldLen - vlen
+	rb.vr = oldLen - vLen
 	rb.size = newSize
 	rb.buf = newBuf
 }

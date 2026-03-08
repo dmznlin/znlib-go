@@ -423,7 +423,7 @@ func DateTime2Str(dt time.Time, fmt ...string) (ret string) {
 	var lay string
 	if fmt == nil {
 		nD := dt.Year() > 0
-		nT := !nD || dt.Hour() > 0 || dt.Minute() > 0 || dt.Second() > 0 || dt.Nanosecond() > 0
+		nT := dt.Hour() > 0 || dt.Minute() > 0 || dt.Second() > 0
 
 		switch {
 		case nD && nT:

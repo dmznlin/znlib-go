@@ -8,15 +8,16 @@ package znlib
 import (
 	"bufio"
 	"fmt"
-	rotatelogs "github.com/lestrrat/go-file-rotatelogs"
-	"github.com/rifflock/lfshook"
-	"github.com/shiena/ansicolor"
-	"github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	rl "github.com/lestrrat/go-file-rotatelogs"
+	"github.com/rifflock/lfshook"
+	"github.com/shiena/ansicolor"
+	"github.com/sirupsen/logrus"
 )
 
 type logType = int8
@@ -24,30 +25,19 @@ type logType = int8
 const (
 	logInfo logType = iota
 	logWarn
-	logEror
+	logError
 )
-
-// Logger 全局日志对象
-var Logger *logrus.Logger = nil
-
-// LogTraceCaller 跟踪日志调用
-var LogTraceCaller = false
 
 // LogFields 日志附加字段
 type LogFields = logrus.Fields
 
-// logConfig 默认日志配置参数
-var logConfig = struct {
-	filePath string        //日志目录
-	fileName string        //日志文件名
-	logLevel logrus.Level  //日志级别
-	maxAge   time.Duration //日志保存天数
-	colors   bool          //使用彩色终端
-}{
-	fileName: "sys.log",
-	logLevel: logrus.InfoLevel,
-	maxAge:   24 * time.Hour,
-}
+var (
+	// Logger 全局日志对象
+	Logger *logrus.Logger = nil
+
+	// LogTraceCaller 跟踪日志调用
+	LogTraceCaller = false
+)
 
 // AddLog 2022-05-30 13:47:50
 /*
@@ -69,7 +59,7 @@ func AddLog(logType logType, log interface{}, trace bool, fields ...LogFields) {
 			Logger.Info(log)
 		case logWarn:
 			Logger.Warn(log)
-		case logEror:
+		case logError:
 			Logger.Error(log)
 		}
 	} else {
@@ -85,7 +75,7 @@ func AddLog(logType logType, log interface{}, trace bool, fields ...LogFields) {
 			Logger.WithFields(all).Info(log)
 		case logWarn:
 			Logger.WithFields(all).Warn(log)
-		case logEror:
+		case logError:
 			Logger.WithFields(all).Error(log)
 		}
 	}
@@ -96,7 +86,7 @@ func AddLog(logType logType, log interface{}, trace bool, fields ...LogFields) {
 			str strings.Builder
 		)
 
-		for true {
+		for {
 			pc, file, line, ok := runtime.Caller(idx)
 			if !ok {
 				break
@@ -147,7 +137,7 @@ func Warn(warn interface{}, fields ...logrus.Fields) {
  描述: 新增一条错误信息
 */
 func Error(error interface{}, fields ...logrus.Fields) {
-	AddLog(logEror, error, LogTraceCaller, fields...)
+	AddLog(logError, error, LogTraceCaller, fields...)
 }
 
 // ErrorCaller 2024-01-19 09:28:13
@@ -159,9 +149,9 @@ func Error(error interface{}, fields ...logrus.Fields) {
 func ErrorCaller(error interface{}, caller string) {
 	caller = StrTrim(caller)
 	if caller == "" {
-		AddLog(logEror, error, LogTraceCaller)
+		AddLog(logError, error, LogTraceCaller)
 	} else {
-		AddLog(logEror, error, LogTraceCaller, LogFields{"caller": caller})
+		AddLog(logError, error, LogTraceCaller, LogFields{"caller": caller})
 	}
 }
 
@@ -175,47 +165,57 @@ func WriteDefaultLog(data string) {
 		return
 	}
 
-	hwnd, err := os.OpenFile(logConfig.filePath+"log_def.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	lf, err := os.OpenFile(GlobalConfig.Logger.FilePath+"log_def.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return
 	}
-	defer hwnd.Close() //close file
+	defer func(lf *os.File) {
+		err = lf.Close()
+		if err != nil {
+			fmt.Println("znlib.WriteDefaultLog: ", err)
+		}
+	}(lf) //close file
 
-	buf := bufio.NewWriterSize(hwnd, 200)
-	defer buf.Flush() //将缓冲中的数据写入
+	buf := bufio.NewWriterSize(lf, 200)
+	defer func(buf *bufio.Writer) {
+		err = buf.Flush()
+		if err != nil {
+			fmt.Println("znlib.WriteDefaultLog: ", err)
+		}
+	}(buf) //将缓冲中的数据写入
 
 	if StrCopyRight(data, 1) != "\n" {
 		data = data + "\n"
 	}
-	buf.WriteString(DateTime2Str(time.Now(), LayoutDateTimeMilli) + "\t" + data)
+	_, _ = buf.WriteString(DateTime2Str(time.Now(), LayoutDateTimeMilli) + "\t" + data)
 }
 
 //-----------------------------------------------------------------------------
 
-func init_logger() {
+func initLogger(cfg *LoggerConfig) {
 	Logger = logrus.New()
 	//new logger
 
-	if !FileExists(logConfig.filePath, true) {
-		MakeDir(logConfig.filePath) //创建日志目录
+	if !FileExists(cfg.FilePath, true) {
+		MakeDir(cfg.FilePath) //创建日志目录
 	}
 
-	logfile := logConfig.filePath + logConfig.fileName
-	opt := []rotatelogs.Option{
+	logfile := cfg.FilePath + cfg.FileName
+	opt := []rl.Option{
 		// 设置最大保存时间(7天)
-		rotatelogs.WithMaxAge(logConfig.maxAge),
+		rl.WithMaxAge(cfg.MaxAge * 24 * time.Hour),
 		// 设置日志切割时间间隔(1天)
-		rotatelogs.WithRotationTime(24 * time.Hour),
+		rl.WithRotationTime(24 * time.Hour),
 	}
 
 	if Application.IsLinux {
 		// 生成软链，指向最新日志文件
-		opt = append(opt, rotatelogs.WithLinkName(logfile))
+		opt = append(opt, rl.WithLinkName(logfile))
 	}
 
-	writer, err := rotatelogs.New(logConfig.filePath+logConfig.fileName+"%Y%m%d.log", opt...)
+	writer, err := rl.New(cfg.FilePath+cfg.FileName+"%Y%m%d.log", opt...)
 	if err != nil {
-		WriteDefaultLog("znlib.rotatelogs.New: " + err.Error())
+		WriteDefaultLog("znlib.rl.New: " + err.Error())
 		return
 	}
 
@@ -242,7 +242,7 @@ func init_logger() {
 		ForceColors:     false,
 	}
 
-	if logConfig.colors {
+	if cfg.Colorful {
 		nFormatter.ForceColors = true
 		// then wrap the log output with it
 		Logger.SetOutput(ansicolor.NewAnsiColorWriter(os.Stdout))
@@ -250,6 +250,6 @@ func init_logger() {
 
 	Logger.SetFormatter(&nFormatter)
 	//输出格式化
-	Logger.SetLevel(logConfig.logLevel)
+	Logger.SetLevel(cfg.LogLevel)
 	//输出级别控制
 }

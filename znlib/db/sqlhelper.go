@@ -1,4 +1,4 @@
-// Package znlib
+// Package db
 /******************************************************************************
   作者: dmzn@163.com 2022-07-15 15:53:40
   描述: 数据库sql相关函数
@@ -25,7 +25,7 @@
 			return "", false
 		})
 ******************************************************************************/
-package znlib
+package db
 
 import (
 	"encoding/json"
@@ -35,6 +35,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	. "github.com/dmznlin/znlib-go/znlib"
 )
 
 // SQLFields 2022-07-15 16:25:23
@@ -54,9 +56,9 @@ func SQLFields(obj interface{}, exclude ...string) string {
 		}
 
 		return strings.Join(fields, ",")
-	} else {
-		return "*"
 	}
+
+	return "*"
 }
 
 // SQLInsert 2022-07-19 19:15:13
@@ -80,7 +82,7 @@ func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType)
 		done   bool
 		sqlVal string
 		nValue = StructFieldValue{
-			DbType:    DBManager.DefaultType,
+			DbType:    Manager.DefaultType,
 			TableName: "",
 		}
 	)
@@ -92,11 +94,11 @@ func SQLInsert(obj interface{}, getVal GetStructFieldValue, dbType ...SqlDbType)
 
 	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) (bool, error) {
 		if nValue.TableName == "" {
-			nValue.TableName = field.Tag.Get(SQLTag_Table)
+			nValue.TableName = field.Tag.Get(TagTable)
 			//get table name
 		}
 
-		nValue.TableField = field.Tag.Get(SQLTag_DB)
+		nValue.TableField = field.Tag.Get(TagDB)
 		if nValue.TableField != "" { //field
 			if getVal != nil {
 				nValue.StructField = field.Name
@@ -166,7 +168,7 @@ func SQLUpdate(obj interface{}, where string, getVal GetStructFieldValue, dbType
 		nFields = make([]string, 0)
 
 		nValue = StructFieldValue{
-			DbType:    DBManager.DefaultType,
+			DbType:    Manager.DefaultType,
 			TableName: "",
 		}
 	)
@@ -178,11 +180,11 @@ func SQLUpdate(obj interface{}, where string, getVal GetStructFieldValue, dbType
 
 	err = WalkStruct(obj, func(field reflect.StructField, value reflect.Value, level int) (bool, error) {
 		if nValue.TableName == "" {
-			nValue.TableName = field.Tag.Get(SQLTag_Table)
+			nValue.TableName = field.Tag.Get(TagTable)
 			//get table name
 		}
 
-		nValue.TableField = field.Tag.Get(SQLTag_DB)
+		nValue.TableField = field.Tag.Get(TagDB)
 		if nValue.TableField != "" { //field
 			if getVal != nil {
 				nValue.StructField = field.Name
@@ -216,7 +218,7 @@ func SQLUpdate(obj interface{}, where string, getVal GetStructFieldValue, dbType
 		return "", errors.New(caller + str)
 	}
 
-	sql = fmt.Sprintf("update %s set %s%s", nValue.TableName,
+	sql = fmt.Sprintf("update %s set %s %s", nValue.TableName,
 		strings.Join(nFields, ","), StrIF(where == "", "", " where "+where))
 	return sql, nil
 }
@@ -226,8 +228,8 @@ type StructFieldValue struct {
 	TableName  string    //数据库表名
 	TableField string    //表字段名
 
-	StructField string      //struct字段名
-	StructValue interface{} //struct字段值
+	StructField string      //struct 字段名
+	StructValue interface{} //struct 字段值
 	ExcludeMe   bool        //排除该字段,不参与构建sql
 }
 
@@ -251,7 +253,7 @@ func SQLValue(value interface{}, dbType SqlDbType) (val string) {
 		return val
 	}
 
-	var strQuotes = SqlQuotes_Single
+	var strQuotes = QuotesSingle
 	//字符串引号
 
 	switch value.(type) {

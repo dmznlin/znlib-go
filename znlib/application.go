@@ -8,7 +8,6 @@ package znlib
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -19,24 +18,31 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
-// application相关属性
-type application struct {
-	ExeName    string //exe full
-	ExePath    string //exe所在路径
-	LogPath    string //日志目录
-	ConfigFile string //主配置文件
-	PathSymbol string //路径分隔符
+type (
+	// application 相关属性
+	application struct {
+		ExeName    string //exe full
+		ExePath    string //exe 所在路径
+		LogPath    string //日志目录
+		ConfigFile string //主配置文件
+		PathSymbol string //路径分隔符
 
-	IsDebug   bool   //调试模式
-	IsWindows bool   //win
-	IsLinux   bool   //linux
-	HostName  string //主机名称
+		IsDebug   bool   //调试模式
+		IsWindows bool   //win
+		IsLinux   bool   //Linux
+		HostName  string //主机名称
 
-	Ctx      context.Context //全局上下文
-	SyncLock sync.RWMutex    //全局同步锁
-}
+		Ctx      context.Context //全局上下文
+		SyncLock sync.RWMutex    //全局同步锁
+	}
+
+	// InitCaller 初始化模块时调用
+	InitCaller = func(cfg *LibConfig)
+)
 
 var (
 	//Application 全局对象
@@ -50,6 +56,9 @@ var (
 
 	//PathSeparator 路径分隔符: / or \\
 	PathSeparator = "/"
+
+	// initCallers 初始化调用列表
+	initCallers = make([]InitCaller, 0)
 
 	//cancelFunc 取消函数
 	cancelFunc context.CancelFunc
@@ -101,9 +110,9 @@ func FixPath(dir string) string {
 
 	if os.IsPathSeparator(dir[l]) {
 		return dir
-	} else {
-		return dir + PathSeparator
 	}
+
+	return dir + PathSeparator
 }
 
 // FixPathVar 2024-01-10 11:30:42
@@ -147,7 +156,7 @@ func MakeDir(dir string) {
 */
 func DeferHandle(throw bool, caller string, cb ...func(err error)) {
 	var nErr error = nil
-	//转换any为常用的error
+	//转换 any 为常用的 error
 
 	e := recover()
 	if e != nil {
@@ -179,13 +188,13 @@ func DeferHandle(throw bool, caller string, cb ...func(err error)) {
 func ErrorPanic(err error, message ...string) {
 	if message == nil {
 		panic(err)
-	} else {
-		for _, msg := range message {
-			err = errors.WithMessage(err, msg)
-		}
-
-		panic(err)
 	}
+
+	for _, msg := range message {
+		err = errors.WithMessage(err, msg)
+	}
+
+	panic(err)
 }
 
 // ErrorMsg 2022-08-12 15:53:48
@@ -234,7 +243,7 @@ func ErrorJoin(base error, other ...error) (err error) {
 	return err
 }
 
-// TryFinal 模拟delhpi的try...finally机制
+// TryFinal 模拟 delphi 的try...finally机制
 type TryFinal struct {
 	Try     func() (err error) //业务函数
 	Finally func()             //强制执行(一定执行)函数
@@ -263,7 +272,7 @@ func (tf TryFinal) Run() (err error) {
 
 		if err != nil {
 			if tf.Except == nil {
-				AddLog(logEror, err, true)
+				AddLog(logError, err, true)
 				//write log
 			} else {
 				tf.Except(err)
@@ -366,7 +375,7 @@ func initApp() {
 		ExeName:    AppFile,
 		ExePath:    AppPath,
 		LogPath:    AppPath + "logs" + PathSeparator,
-		ConfigFile: AppPath + "config.xml",
+		ConfigFile: AppPath + "lib.json",
 		PathSymbol: PathSeparator,
 
 		IsDebug:   false,
@@ -404,6 +413,30 @@ func (app *application) RegisterExitHandler(fn func()) {
 	//注册
 }
 
+// RegisterInitHandler 2026-03-08 11:54:37
+/*
+ 参数: fn,初始化函数
+ 描述: 注册fn函数,在系统退出时执行
+*/
+func (app *application) RegisterInitHandler(fn InitCaller) {
+	if IsNil(fn) {
+		return
+	}
+
+	app.SyncLock.Lock()
+	defer app.SyncLock.Unlock()
+	pFun := reflect.ValueOf(fn)
+
+	for _, v := range cancelExtend {
+		if reflect.ValueOf(v).Pointer() == pFun.Pointer() { //重复注册
+			return
+		}
+	}
+
+	initCallers = append(initCallers, fn)
+	//注册
+}
+
 // Exit 2024-01-11 21:14:24
 /*
  描述: 程序退出,广播消息给所有routine(需支持Ctx)
@@ -430,5 +463,5 @@ func (app *application) SetWorkDir(dir string) {
 	AppPath = FixPath(dir)
 	app.ExePath = AppPath
 	app.LogPath = AppPath + "logs" + PathSeparator
-	app.ConfigFile = AppPath + "config.xml"
+	app.ConfigFile = AppPath + "lib.json"
 }

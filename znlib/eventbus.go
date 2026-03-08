@@ -98,9 +98,9 @@ func (bus *EventBus) HasCallback(topic string) bool {
 
 	if _, ok := bus.handlers[topic]; ok {
 		return len(bus.handlers[topic]) > 0
-	} else {
-		return false
 	}
+
+	return false
 }
 
 // Unsubscribe 2022-08-20 18:53:04
@@ -120,9 +120,9 @@ func (bus *EventBus) Unsubscribe(topic string, fn ...interface{}) error {
 		}
 
 		return bus.deleteHandler(topic, nil, fn...)
-	} else {
-		return ErrorMsg(nil, fmt.Sprintf("znlib.eventbus.Unsubscribe: topic %s doesn't exist", topic))
 	}
+
+	return ErrorMsg(nil, fmt.Sprintf("znlib.eventbus.Unsubscribe: topic %s doesn't exist", topic))
 }
 
 // Publish 2022-08-19 13:36:54
@@ -168,7 +168,7 @@ func (bus *EventBus) Publish(topic string, args ...interface{}) {
 		func() {
 			bus.lock.Lock()
 			defer bus.lock.Unlock()
-			bus.deleteHandler(topic, onceList)
+			_ = bus.deleteHandler(topic, onceList)
 		}()
 	}
 }
@@ -210,7 +210,7 @@ func (bus *EventBus) deleteHandler(topic string, toDel []*eventHandler, fn ...in
 
 	if fn != nil {
 		for _, f := range fn {
-			if f == nil { //nil参数
+			if f == nil { //nil 参数
 				continue
 			}
 
