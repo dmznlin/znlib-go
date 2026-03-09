@@ -110,7 +110,7 @@ func init() {
 
 			cp := x509.NewCertPool()
 			if !cp.AppendCertsFromPEM(rootCA) {
-				ErrorCaller("mqtt.Tls.ca 配置错误: 无法加载", caller)
+				ErrorCaller("mqtt.Tls.ca load error", caller)
 				return
 			}
 
@@ -187,7 +187,7 @@ func init() {
 					}
 				}
 
-				Info("mqtt.connected: " + host)
+				Info("znlib.mqtt.connected: " + host)
 				_ = Client.subscribeMultiple(client) //连接成功后,重新订阅主题
 				Client.eventAction(EventConnected)   //触发已连接事件
 			})
@@ -195,14 +195,14 @@ func init() {
 
 		if Client.Options.OnConnectionLost == nil {
 			Client.Options.SetConnectionLostHandler(func(client mt.Client, err error) {
-				ErrorCaller(err, "mqtt.lostconnect")
+				ErrorCaller(err, "znlib.mqtt.lostconnect")
 				Client.eventAction(EventDisconnect) //触发断开事件
 			})
 		}
 
 		if Client.Options.OnReconnecting == nil {
 			Client.Options.SetReconnectingHandler(func(client mt.Client, options *mt.ClientOptions) {
-				Info("mqtt.reconnect_broker.")
+				Info("znlib.mqtt: reconnect broker")
 			})
 		}
 	})
@@ -239,7 +239,7 @@ func (mc *mqttClient) RegisterEventHandler(fn EventHandler) {
  描述: 触发一个event事件
 */
 func (mc *mqttClient) eventAction(event Event) {
-	defer DeferHandle(false, "mqtt.eventAction")
+	defer DeferHandle(false, "znlib.mqtt.eventAction")
 	for _, do := range mc.events {
 		do(event)
 	}
@@ -266,7 +266,7 @@ func (mc *mqttClient) Start(msgHandler mt.MessageHandler) error {
 	//连接 broker
 
 	if token.Wait() && token.Error() != nil {
-		ErrorCaller(token.Error(), "mqtt.connect_broker")
+		ErrorCaller(token.Error(), "znlib.mqtt.Start")
 	}
 
 	mc.eventAction(EventServiceStart)
@@ -382,11 +382,11 @@ func (mc *mqttClient) Unsubscribe(client mt.Client) error {
 		token := client.Unsubscribe(topics...)
 		token.Wait()
 		if token.Error() != nil {
-			ErrorCaller(token.Error(), "mqtt.unsubscribe")
+			ErrorCaller(token.Error(), "znlib.mqtt.unsubscribe")
 			return token.Error()
 		}
 
-		Info(fmt.Sprintf("mqtt.unsubscribe: %v", topics))
+		Info(fmt.Sprintf("znlib.mqtt.unsubscribe: %v", topics))
 	}
 
 	return nil

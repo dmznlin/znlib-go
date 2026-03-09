@@ -110,11 +110,12 @@ type (
 
 	// LibConfig 配置文件结构体
 	LibConfig struct {
-		Logger LoggerConfig    `json:"logger"` //日志配置
-		Snow   SnowflakeConfig `json:"snow"`   //雪花算法
-		Redis  RedisConfig     `json:"redis"`  //redis
-		DB     DbConfig        `json:"db"`     //数据库
-		Mqtt   MqttConfig      `json:"mqtt"`   //mqtt
+		Logger LoggerConfig    `json:"logger"`        //日志配置
+		App    any             `json:"app,omitempty"` //应用配置
+		Snow   SnowflakeConfig `json:"snow"`          //雪花算法
+		Redis  RedisConfig     `json:"redis"`         //redis
+		DB     DbConfig        `json:"db"`            //数据库
+		Mqtt   MqttConfig      `json:"mqtt"`          //mqtt
 	}
 )
 
@@ -135,6 +136,7 @@ var (
 			MaxAge:   7,
 			Colorful: false,
 		},
+		App: nil,
 		Snow: SnowflakeConfig{
 			Enable:     false,
 			WorkerID:   1,
@@ -166,7 +168,7 @@ var (
 					User:    "sa",
 					Passwd:  "",
 					Host:    "127.0.0.1",
-					DSN:     "user id=$user;password=$pwd;Data Source=$host",
+					DSN:     "user=$user;pwd=$pwd;host=$host",
 					MaxOpen: 5,
 					MaxIdle: 2,
 				},

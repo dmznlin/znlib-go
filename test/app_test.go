@@ -1,15 +1,30 @@
 package test
 
 import (
-	. "github.com/dmznlin/znlib-go/znlib"
 	"testing"
 	"time"
+
+	. "github.com/dmznlin/znlib-go/znlib"
 )
 
 // znlib初始化
 var _ = InitLib(func() {
-	Application.SetWorkDir(`D:\Mywork\KTManager\znlib-go\main\bin\`)
-}, nil)
+	Application.SetWorkDir(`D:\Program Files\MyLib\znlib-go\main\bin\`)
+
+	cfg := struct {
+		Age  int    `json:"age"`
+		Addr string `json:"addr"`
+	}{
+		Age:  10,
+		Addr: "127.0.0.1:8080",
+	}
+
+	GlobalConfig.App = &cfg
+	//添加外部配置
+}, func() {
+	Info(GlobalConfig.App)
+	//读取外部配置
+})
 
 func Test_FixPath(t *testing.T) {
 	last := Application.ExePath[len(Application.ExePath)-1]
