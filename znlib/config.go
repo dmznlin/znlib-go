@@ -3,9 +3,21 @@
 作者: dmzn@163.com 2022-05-30 13:45:17
 描述: 配置lib库
 
-描述:
-1.依据配置文件初始化各单元
-2.依据依赖先后顺序初始化各单元
+外部配置:
+var _ = znlib.InitLib(func() {
+	znlib.GlobalConfig.App = &cfg
+	//接入全局配置
+}, func() {
+	_ = mapstructure.Decode(znlib.GlobalConfig.App, &cfg)
+	//使用 znlib.mpstruct 还原配置信息
+})
+
+内部配置:
+func init()  {
+	Application.RegisterInitHandler(func(cfg *LibConfig) {
+		//使用加载的参数
+	}
+}
 ******************************************************************************/
 package znlib
 

@@ -43,16 +43,16 @@ var Manager = &Utils{
 */
 func init() {
 	Application.RegisterInitHandler(func(cfg *LibConfig) {
-		if !GlobalConfig.DB.Enable {
+		if !cfg.DB.Enable {
 			return
 		}
 
 		caller := "znlib.dbhelper.init"
-		if len(GlobalConfig.DB.EncryptKey) > 0 {
-			buf, err := NewEncrypter(EncryptDesEcb, []byte(DefaultEncryptKey)).Decrypt([]byte(GlobalConfig.DB.EncryptKey), true)
+		if len(cfg.DB.EncryptKey) > 0 {
+			buf, err := NewEncrypter(EncryptDesEcb, []byte(DefaultEncryptKey)).Decrypt([]byte(cfg.DB.EncryptKey), true)
 			if err == nil {
 				if len(buf) == 8 {
-					GlobalConfig.DB.EncryptKey = string(buf) //new key
+					cfg.DB.EncryptKey = string(buf) //new key
 				} else {
 					ErrorCaller("EncryptKey length!=8", caller)
 					return
@@ -63,11 +63,11 @@ func init() {
 			}
 		}
 
-		if len(GlobalConfig.DB.EncryptKey) < 1 {
-			GlobalConfig.DB.EncryptKey = DefaultEncryptKey
+		if len(cfg.DB.EncryptKey) < 1 {
+			cfg.DB.EncryptKey = DefaultEncryptKey
 		}
 
-		for _, conn := range GlobalConfig.DB.DbConn {
+		for _, conn := range cfg.DB.DbConn {
 			Manager.DBList[conn.Name] = conn
 			if conn.MaxOpen < 1 {
 				conn.MaxOpen = 5
@@ -77,7 +77,7 @@ func init() {
 			}
 
 			if len(conn.Passwd) > 0 {
-				buf, err := NewEncrypter(EncryptDesEcb, []byte(GlobalConfig.DB.EncryptKey)).Decrypt([]byte(conn.Passwd), true)
+				buf, err := NewEncrypter(EncryptDesEcb, []byte(cfg.DB.EncryptKey)).Decrypt([]byte(conn.Passwd), true)
 				if err != nil {
 					ErrorCaller(ErrorMsg(err, fmt.Sprintf(`"%s.passwd" wrong`, conn.Name)), caller)
 					return
@@ -91,7 +91,7 @@ func init() {
 			//生成连接 dns
 		}
 
-		conn, ok := Manager.DBList[GlobalConfig.DB.DefaultName]
+		conn, ok := Manager.DBList[cfg.DB.DefaultName]
 		if ok {
 			Manager.DefaultType = conn.Type
 		} else {
