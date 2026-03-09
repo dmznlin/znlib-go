@@ -245,7 +245,9 @@ func initLogger(cfg *LoggerConfig) {
 	if cfg.Colorful {
 		nFormatter.ForceColors = true
 		// then wrap the log output with it
-		Logger.SetOutput(ansicolor.NewAnsiColorWriter(os.Stdout))
+		if cfg.ColorEn {
+			Logger.SetOutput(ansicolor.NewAnsiColorWriter(os.Stdout))
+		}
 	}
 
 	Logger.SetFormatter(&nFormatter)

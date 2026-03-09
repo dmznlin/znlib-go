@@ -43,8 +43,9 @@ type (
 		FileName string        `json:"fileName"` //日志文件名
 		Level    string        `json:"logLevel"` //日志级别
 		LogLevel logrus.Level  `json:"-"`
-		MaxAge   time.Duration `json:"maxAge"`   //日志保存天数
-		Colorful bool          `json:"colorful"` //使用彩色终端
+		MaxAge   time.Duration `json:"maxAge"`       //日志保存天数
+		Colorful bool          `json:"colorful"`     //使用彩色终端
+		ColorEn  bool          `json:"colorEnhance"` //使用增强颜色
 	}
 
 	// SnowflakeConfig 雪花算法配置
@@ -147,6 +148,7 @@ var (
 			LogLevel: logrus.InfoLevel,
 			MaxAge:   7,
 			Colorful: false,
+			ColorEn:  true,
 		},
 		App: nil,
 		Snow: SnowflakeConfig{
