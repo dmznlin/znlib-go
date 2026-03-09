@@ -77,7 +77,10 @@ func init() {
 	})
 
 	Application.RegisterInitHandler(func(cfg *LibConfig) {
-		Client.ApplyConfig(&cfg.Mqtt)
+		err := Client.ApplyConfig(&cfg.Mqtt)
+		if err != nil {
+			ErrorCaller(err, "znlib.mqtt.init")
+		}
 	})
 }
 
@@ -86,52 +89,44 @@ func init() {
  参数: cfg,mqtt配置
  描述:
 */
-func (mc *Utils) ApplyConfig(cfg *MqttConfig) {
+func (mc *Utils) ApplyConfig(cfg *MqttConfig) error {
 	if !cfg.Enable {
-		return
+		return nil
 	}
 
-	caller := "znlib.mqtt.ApplyConfig"
 	if len(cfg.Broker) < 1 {
-		ErrorCaller("mqtt.broker is empty", caller)
-		return
+		return fmt.Errorf("mqtt.broker is empty")
 	}
 
 	if cfg.Tls.Used {
 		cfg.Tls.CA = FixPathVar(cfg.Tls.CA)
 		if !FileExists(cfg.Tls.CA, false) {
-			ErrorCaller("mqtt.Tls.ca is miss", caller)
-			return
+			return fmt.Errorf("mqtt.Tls.ca is miss")
 		}
 
 		cfg.Tls.Key = FixPathVar(cfg.Tls.Key)
 		if !FileExists(cfg.Tls.Key, false) {
-			ErrorCaller("mqtt.Tls.key is miss", caller)
-			return
+			return fmt.Errorf("mqtt.Tls.key is miss")
 		}
 
 		cfg.Tls.Cert = FixPathVar(cfg.Tls.Cert)
 		if !FileExists(cfg.Tls.Cert, false) {
-			ErrorCaller("mqtt.Tls.cert is miss", caller)
-			return
+			return fmt.Errorf("mqtt.Tls.cert is miss")
 		}
 
 		rootCA, err := os.ReadFile(cfg.Tls.CA)
 		if err != nil {
-			ErrorCaller(err, caller)
-			return
+			return fmt.Errorf("mqtt.ReadFile: %v", err)
 		}
 
 		cp := x509.NewCertPool()
 		if !cp.AppendCertsFromPEM(rootCA) {
-			ErrorCaller("mqtt.Tls.ca load error", caller)
-			return
+			return fmt.Errorf("mqtt.Tls.ca load error")
 		}
 
 		cert, err := tls.LoadX509KeyPair(cfg.Tls.Cert, cfg.Tls.Key)
 		if err != nil {
-			ErrorCaller(err, caller)
-			return
+			return fmt.Errorf("mqtt.LoadX509KeyPair: %v", err)
 		}
 
 		mc.Options.SetTLSConfig(&tls.Config{
@@ -146,8 +141,7 @@ func (mc *Utils) ApplyConfig(cfg *MqttConfig) {
 	if cfg.Password != "" { // broker 密码
 		buf, err := NewEncrypter(EncryptDesEcb, []byte(DefaultEncryptKey)).Decrypt([]byte(cfg.Password), true)
 		if err != nil {
-			ErrorCaller("mqtt.pwd is invalid", caller)
-			return
+			return fmt.Errorf("mqtt.pwd is invalid: %v", err)
 		}
 
 		cfg.Password = string(buf)
@@ -164,10 +158,12 @@ func (mc *Utils) ApplyConfig(cfg *MqttConfig) {
 	}
 
 	for _, v := range cfg.TopicSub {
-		v.Topic = StrReplace(v.Topic, cfg.ClientID, "$id")
-		//更新数据通道标识
-		mc.SubTopics[v.Topic] = v.Qos
-		//订阅主题
+		if len(v.Topic) > 0 {
+			v.Topic = StrReplace(v.Topic, cfg.ClientID, "$id")
+			//更新数据通道标识
+			mc.SubTopics[v.Topic] = v.Qos
+			//订阅主题
+		}
 	}
 
 	for _, v := range cfg.TopicPub {
@@ -204,7 +200,7 @@ func (mc *Utils) ApplyConfig(cfg *MqttConfig) {
 			}
 
 			Info("znlib.mqtt.connected: " + host)
-			_ = mc.subscribeMultiple(client) //连接成功后,重新订阅主题
+			_ = mc.SubscribeMultiple(client) //连接成功后,重新订阅主题
 			mc.eventAction(EventConnected)   //触发已连接事件
 		})
 	}
@@ -221,6 +217,8 @@ func (mc *Utils) ApplyConfig(cfg *MqttConfig) {
 			Info("znlib.mqtt: reconnect broker")
 		})
 	}
+
+	return nil
 }
 
 // Start 2024-01-11 08:24:20
@@ -319,6 +317,10 @@ func (mc *Utils) Publish(topic string, qos Qos, msg []byte) {
  描述: 新增订阅topic主题
 */
 func (mc *Utils) Subscribe(topic string, qos Qos, ctl ...bool) error {
+	if len(topic) < 1 {
+		return fmt.Errorf("topic is empty")
+	}
+
 	reset := false //不重置
 	via := true    //立即发送
 	cl := len(ctl)
@@ -340,21 +342,29 @@ func (mc *Utils) Subscribe(topic string, qos Qos, ctl ...bool) error {
 	//添加新主题
 
 	if via {
-		return mc.subscribeMultiple(mc.Client)
-		//开始订阅
+		tk := mc.Client.Subscribe(topic, qos, nil) //开始订阅
+		if tk.Wait() && tk.Error() != nil {
+			ErrorCaller(tk.Error(), "znlib.mqtt.subscribe")
+			return tk.Error()
+		}
 	}
 
 	return nil
 }
 
-// subscribeMultiple 2024-01-14 15:22:11
+// SubscribeMultiple 2024-01-14 15:22:11
 /*
  参数: Client,链路
  描述: 订阅主题列表
 */
-func (mc *Utils) subscribeMultiple(client mt.Client) error {
+func (mc *Utils) SubscribeMultiple(client mt.Client) error {
 	if len(mc.SubTopics) < 1 {
 		return nil
+	}
+
+	if client == nil {
+		client = mc.Client
+		//use default
 	}
 
 	token := client.SubscribeMultiple(mc.SubTopics, nil)
