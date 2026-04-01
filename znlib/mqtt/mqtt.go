@@ -272,6 +272,15 @@ func (mc *Utils) Start(msgHandler mt.MessageHandler, waitPub ...time.Duration) e
 		//默认消息处理句柄
 	}
 
+	if len(waitPub) > 0 { //等待订阅
+		if mc.waitePub == nil {
+			mc.waitePub = NewWaiter[bool](nil)
+		}
+
+		mc.waitePub.Reset()
+		//清空等待信号
+	}
+
 	mc.Client = mt.NewClient(mc.Options)
 	//创建链路
 	token := mc.Client.Connect()
@@ -282,12 +291,6 @@ func (mc *Utils) Start(msgHandler mt.MessageHandler, waitPub ...time.Duration) e
 	}
 
 	if len(waitPub) > 0 {
-		//等待订阅
-		if mc.waitePub == nil {
-			mc.waitePub = NewWaiter[bool](nil)
-		}
-
-		mc.waitePub.Reset()
 		_, ok := mc.waitePub.WaitFor(waitPub[0])
 		if !ok {
 			return fmt.Errorf("znlib.mqtt.Start:wait publish timeout")
