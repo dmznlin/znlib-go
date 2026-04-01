@@ -132,6 +132,8 @@ func NewWaiter[T any](fn func() T) *Waiter[T] {
 /*
  参数: timeout,超时时长;0无限等待
  描述: 等待并返回结果,true表示数据有效
+
+ 备注: ok=false时result=nil,只有系统退出时result!=nil
 */
 func (wt *Waiter[T]) WaitFor(timeout time.Duration) (result *T, ok bool) {
 	if timeout < 1 { //等待直到唤醒
@@ -142,10 +144,15 @@ func (wt *Waiter[T]) WaitFor(timeout time.Duration) (result *T, ok bool) {
 	ticker := time.After(timeout)
 	for {
 		select {
+		case <-Application.Ctx.Done():
+			return new(T), false
 		case <-ticker:
 			return nil, false
 		case ok = <-wt.done:
-			return wt.val, ok && wt.val != nil
+			if ok && wt.val != nil {
+				return wt.val, true
+			}
+			return nil, false
 		}
 	}
 }

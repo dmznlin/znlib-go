@@ -6,6 +6,7 @@
 package znlib
 
 import (
+	"errors"
 	"syscall"
 	"unsafe"
 )
@@ -21,7 +22,7 @@ func mutexLock(st *singleton, caller string) bool {
 	kernel := syscall.NewLazyDLL("kernel32.dll")
 	st.mutexHandle, _, err = kernel.NewProc("CreateMutexA").Call(0, 1, uintptr(unsafe.Pointer(&st.mutex)))
 
-	if err != syscall.Errno(0) {
+	if !errors.Is(err, syscall.Errno(0)) {
 		ErrorCaller(err, caller)
 		return false
 	}

@@ -6,7 +6,7 @@
 package znlib
 
 // DefaultEncryptKey 默认加密秘钥
-const DefaultEncryptKey = "znlib-go"
+var DefaultEncryptKey = "znlib-go"
 
 const (
 	StrTrue  = "true"  //true string
