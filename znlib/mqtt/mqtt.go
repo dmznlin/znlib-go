@@ -66,6 +66,7 @@ type Utils struct {
 
 // Client 客户端
 var Client = &Utils{
+	Client:    nil,
 	Options:   mt.NewClientOptions(),
 	SubTopics: make(map[string]Qos),
 	PubTopics: make(map[string]Qos),
@@ -227,7 +228,7 @@ func (mc *Utils) ApplyConfig(cfg *MqttConfig) error {
 			}
 
 			mc.hintMsg("znlib.mqtt.connected: " + host)
-			_ = mc.SubscribeMultiple(client)
+			_ = mc.SubscribeMultiple()
 			//连接成功后,重新订阅主题
 
 			if mc.waitePub != nil {
@@ -308,7 +309,7 @@ func (mc *Utils) Start(msgHandler mt.MessageHandler, waitPub ...time.Duration) e
 */
 func (mc *Utils) Stop() {
 	if mc.Client != nil {
-		_ = mc.Unsubscribe(mc.Client)
+		_ = mc.Unsubscribe()
 		//退订主题
 		mc.Client.Disconnect(500)
 		//断开链路
@@ -321,11 +322,10 @@ func (mc *Utils) Stop() {
 
 // isConnected 2026-04-01 10:50:19
 /*
- 参数: cli,链路
- 描述: 检测 cli 是否已连接
+ 描述: 检测 链路 是否已连接
 */
-func (mc *Utils) isConnected(cli mt.Client) error {
-	if cli == nil || !cli.IsConnected() {
+func (mc *Utils) isConnected() error {
+	if mc.Client == nil || !mc.Client.IsConnected() {
 		return fmt.Errorf("client is not connected")
 	}
 
@@ -334,23 +334,28 @@ func (mc *Utils) isConnected(cli mt.Client) error {
 
 // Publish 2026-02-27 14:43:07
 /*
- 参数: topic,主题
+ 参数: topic,主题或名称
  参数: qos,送达级别
  参数: msg,消息
  描述: 向topic发布msg消息
 */
-func (mc *Utils) Publish(topic string, qos Qos, msg []byte) error {
-	defer DeferHandle(false, "znlib.mqtt.publish")
-	//捕捉网络异常
+func (mc *Utils) Publish(topic string, qos Qos, msg []byte) (res error) {
+	caller := "znlib.mqtt.publish"
+	defer DeferHandle(false, caller, func(err error) {
+		if err != nil {
+			res = err
+		}
+	}) //捕捉网络异常
 
-	if err := mc.isConnected(mc.Client); err != nil {
+	if err := mc.isConnected(); err != nil {
 		return err
 	}
 
+	var retain = false
 	pub := func() error {
-		token := mc.Client.Publish(topic, qos, false, msg)
+		token := mc.Client.Publish(topic, qos, retain, msg)
 		if token.Wait() && token.Error() != nil {
-			mc.hintMsg(token.Error().Error(), "znlib.mqtt.publish")
+			mc.hintMsg(token.Error().Error(), caller)
 			return token.Error()
 		}
 
@@ -360,32 +365,32 @@ func (mc *Utils) Publish(topic string, qos Qos, msg []byte) error {
 	useCfg := qos == QosNone
 	//使用配置 qos
 
-	if topic == "" { //发布至所有主题
-		var q Qos
-		for topic, q = range mc.PubTopics {
-			if useCfg {
-				qos = q
-			}
-
-			if err := pub(); err != nil {
-				return err
-			}
+	qs, ok := mc.PubTopics[topic]
+	if ok { //主题匹配
+		if useCfg {
+			qos = qs
 		}
 
-		return nil
+		return pub()
+		//明确主题
+	}
+
+	for _, tp := range GlobalConfig.Mqtt.TopicPub {
+		if tp.Name == topic { //名称匹配
+			if useCfg {
+				qos = tp.Qos
+			}
+
+			topic = tp.Topic
+			retain = tp.Retain
+			return pub() //明确主题名称
+		}
 	}
 
 	if useCfg {
-		q, ok := mc.PubTopics[topic]
-		if ok {
-			qos = q
-		} else {
-			qos = Qos0
-		}
+		qos = Qos0
 	}
-
-	return pub()
-	//自定义主题
+	return pub() //定义主题
 }
 
 // Subscribe 2024-01-14 14:52:25
@@ -395,8 +400,15 @@ func (mc *Utils) Publish(topic string, qos Qos, msg []byte) error {
  参数: ctl,控制参数(1.true:重置订阅;2.true:立即订阅)
  描述: 新增订阅topic主题
 */
-func (mc *Utils) Subscribe(topic string, qos Qos, ctl ...bool) error {
-	if err := mc.isConnected(mc.Client); err != nil {
+func (mc *Utils) Subscribe(topic string, qos Qos, ctl ...bool) (res error) {
+	caller := "znlib.mqtt.subscribe"
+	defer DeferHandle(false, caller, func(err error) {
+		if err != nil {
+			res = err
+		}
+	}) //捕捉网络异常
+
+	if err := mc.isConnected(); err != nil {
 		return err
 	}
 
@@ -423,11 +435,12 @@ func (mc *Utils) Subscribe(topic string, qos Qos, ctl ...bool) error {
 	if via {
 		token := mc.Client.Subscribe(topic, qos, nil) //开始订阅
 		if token.Wait() && token.Error() != nil {
-			mc.hintMsg(token.Error().Error(), "znlib.mqtt.subscribe")
+			mc.hintMsg(token.Error().Error(), caller)
 			return token.Error()
 		}
 	}
 
+	mc.hintMsg(fmt.Sprintf(caller+": [%s]", topic))
 	return nil
 }
 
@@ -436,64 +449,70 @@ func (mc *Utils) Subscribe(topic string, qos Qos, ctl ...bool) error {
  参数: Client,链路
  描述: 订阅主题列表
 */
-func (mc *Utils) SubscribeMultiple(client mt.Client) error {
+func (mc *Utils) SubscribeMultiple() (res error) {
 	if len(mc.SubTopics) < 1 {
 		return nil
 	}
 
-	if client == nil {
-		client = mc.Client
-		//use default
-	}
+	caller := "znlib.mqtt.subscribe"
+	defer DeferHandle(false, caller, func(err error) {
+		if err != nil {
+			res = err
+		}
+	}) //捕捉网络异常
 
-	if err := mc.isConnected(client); err != nil {
+	if err := mc.isConnected(); err != nil {
 		return err
 	}
 
-	token := client.SubscribeMultiple(mc.SubTopics, nil)
+	token := mc.Client.SubscribeMultiple(mc.SubTopics, nil)
 	if token.Wait() && token.Error() != nil {
-		mc.hintMsg(token.Error().Error(), "znlib.mqtt.subMultiple")
+		mc.hintMsg(token.Error().Error(), caller)
 		return token.Error()
 	}
 
-	mc.hintMsg(fmt.Sprintf("znlib.mqtt.subscribe: %v", mc.SubTopics))
+	mc.hintMsg(fmt.Sprintf(caller+": %v", mc.SubTopics))
 	return nil
 }
 
 // Unsubscribe 2026-03-03 11:30:37
 /*
- 参数: Client,链路
- 描述: 退订所有主题
+ 参数: topic,待退订主题
+ 描述: 退订主题,默认退订所有
 */
-func (mc *Utils) Unsubscribe(client mt.Client) error {
-	if client == nil {
-		client = mc.Client
-		//use default
-	}
+func (mc *Utils) Unsubscribe(topics ...string) (res error) {
+	caller := "znlib.mqtt.unsubscribe"
+	defer DeferHandle(false, caller, func(err error) {
+		if err != nil {
+			res = err
+		}
+	}) //捕捉网络异常
 
-	if err := mc.isConnected(client); err != nil {
+	if err := mc.isConnected(); err != nil {
 		return err
 	}
 
-	idx := len(mc.SubTopics)
-	if idx < 1 {
-		return nil
+	if len(topics) < 1 {
+		idx := len(mc.SubTopics)
+		if idx < 1 {
+			return nil
+		}
+
+		topics = make([]string, idx)
+		idx = 0
+		for tp := range mc.SubTopics { //退订所有主题
+			topics[idx] = tp
+			idx++
+		}
 	}
 
-	topics := make([]string, idx)
-	idx = 0
-	for k := range mc.SubTopics { //退订所有主题
-		topics[idx] = k
-		idx++
-	}
-
-	token := client.Unsubscribe(topics...)
+	token := mc.Client.Unsubscribe(topics...)
 	if token.Wait() && token.Error() != nil {
-		mc.hintMsg(token.Error().Error(), "znlib.mqtt.unsubscribe")
+		mc.hintMsg(token.Error().Error(), caller)
 		return token.Error()
 	}
 
-	mc.hintMsg(fmt.Sprintf("znlib.mqtt.unsubscribe: %v", topics))
+	mc.hintMsg(fmt.Sprintf(caller+": %v", topics))
 	return nil
 }
 

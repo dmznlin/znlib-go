@@ -97,8 +97,10 @@ type (
 	}
 
 	MqttTopic = struct {
-		Qos   byte   `json:"qos"`   //控制
-		Topic string `json:"topic"` //主题
+		Name   string `json:"name"`   //名称
+		Qos    byte   `json:"qos"`    //控制
+		Topic  string `json:"topic"`  //主题
+		Retain bool   `json:"retain"` //保留
 	}
 
 	MqttTLS = struct {
@@ -203,14 +205,18 @@ var (
 			},
 			TopicSub: []*MqttTopic{
 				{
-					Qos:   0,
-					Topic: "",
+					Name:   "",
+					Qos:    0,
+					Topic:  "",
+					Retain: false,
 				},
 			},
 			TopicPub: []*MqttTopic{
 				{
-					Qos:   0,
-					Topic: "",
+					Name:   "",
+					Qos:    0,
+					Topic:  "",
+					Retain: false,
 				},
 			},
 		},
