@@ -100,7 +100,7 @@ func init() {
  参数: msg,提示信息
  描述: 按需求打印提示信息
 */
-func (mc *Utils) hintMsg(msg string, caller ...string) {
+func (mc *Utils) hintMsg(msg any, caller ...string) {
 	if mc.HintInfo {
 		if len(caller) < 1 {
 			Info(msg)
@@ -108,6 +108,23 @@ func (mc *Utils) hintMsg(msg string, caller ...string) {
 			ErrorCaller(msg, caller[0])
 		}
 	}
+}
+
+// checkToken 2026-04-03 15:42:04
+/*
+ 参数: token,应答
+ 描述: 检查应答结果是否有效
+*/
+func (mc *Utils) checkToken(token mt.Token, caller string) error {
+	if !token.Wait() { //等待失败 or 超时
+		return fmt.Errorf("%s: token wait failed", caller)
+	}
+
+	if token.Error() != nil {
+		mc.hintMsg(token.Error(), caller)
+	}
+
+	return token.Error()
 }
 
 // ApplyConfig 2026-03-09 15:04:52
@@ -287,14 +304,15 @@ func (mc *Utils) Start(msgHandler mt.MessageHandler, waitPub ...time.Duration) e
 	token := mc.Client.Connect()
 	//连接 broker
 
-	if token.Wait() && token.Error() != nil {
-		return token.Error()
+	caller := "znlib.mqtt.Start"
+	if err := mc.checkToken(token, caller); err != nil {
+		return err
 	}
 
 	if len(waitPub) > 0 {
 		_, ok := mc.waitePub.WaitFor(waitPub[0])
 		if !ok {
-			return fmt.Errorf("znlib.mqtt.Start:wait publish timeout")
+			return fmt.Errorf(caller + ":wait publish timeout")
 		}
 	}
 
@@ -354,9 +372,8 @@ func (mc *Utils) Publish(topic string, qos Qos, msg []byte) (res error) {
 	var retain = false
 	pub := func() error {
 		token := mc.Client.Publish(topic, qos, retain, msg)
-		if token.Wait() && token.Error() != nil {
-			mc.hintMsg(token.Error().Error(), caller)
-			return token.Error()
+		if err := mc.checkToken(token, caller); err != nil {
+			return err
 		}
 
 		return nil
@@ -434,9 +451,8 @@ func (mc *Utils) Subscribe(topic string, qos Qos, ctl ...bool) (res error) {
 
 	if via {
 		token := mc.Client.Subscribe(topic, qos, nil) //开始订阅
-		if token.Wait() && token.Error() != nil {
-			mc.hintMsg(token.Error().Error(), caller)
-			return token.Error()
+		if err := mc.checkToken(token, caller); err != nil {
+			return err
 		}
 	}
 
@@ -466,9 +482,8 @@ func (mc *Utils) SubscribeMultiple() (res error) {
 	}
 
 	token := mc.Client.SubscribeMultiple(mc.SubTopics, nil)
-	if token.Wait() && token.Error() != nil {
-		mc.hintMsg(token.Error().Error(), caller)
-		return token.Error()
+	if err := mc.checkToken(token, caller); err != nil {
+		return err
 	}
 
 	mc.hintMsg(fmt.Sprintf(caller+": %v", mc.SubTopics))
@@ -507,9 +522,8 @@ func (mc *Utils) Unsubscribe(topics ...string) (res error) {
 	}
 
 	token := mc.Client.Unsubscribe(topics...)
-	if token.Wait() && token.Error() != nil {
-		mc.hintMsg(token.Error().Error(), caller)
-		return token.Error()
+	if err := mc.checkToken(token, caller); err != nil {
+		return err
 	}
 
 	mc.hintMsg(fmt.Sprintf(caller+": %v", topics))
